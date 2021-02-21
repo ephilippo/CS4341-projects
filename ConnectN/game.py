@@ -34,16 +34,16 @@ class Game(object):
         # Current player
         p = 0
         while self.board.free_cols() and self.board.get_outcome() == 0:
-            self.board.print_it()
+            #self.board.print_it()
             # Copy board so player can't modify it
             x = self.players[p].go(self.board.copy())
-            print(self.players[p].name, "move:", x)
+            #print(self.players[p].name, "move:", x)
             if not x in self.board.free_cols():
-                print("Illegal move")
+                #print("Illegal move")
                 outcome = 1
                 if p == 0:
                     outcome = 2
-                print(self.players[outcome-1].name, "won!")
+                #print(self.players[outcome-1].name, "won!")
                 return outcome
             # Legal move, add token there
             self.board.add_token(x)
@@ -53,13 +53,15 @@ class Game(object):
             else:
                 p = 0
         # Print game outcome
-        self.board.print_it()
+        #self.board.print_it()
         outcome = self.board.get_outcome()
-        print("Game over!")
+        #print("Game over!")
         if outcome == 0:
-            print("It's a tie!")
+            #print("It's a tie!")
+            pass
         else:
-            print(self.players[outcome-1].name, "won!")
+            #print(self.players[outcome-1].name, "won!")
+            pass
         return outcome
 
     # Execute a timed game.
