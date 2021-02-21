@@ -41,7 +41,7 @@ import time
 #               6, # height
 #               4, # tokens in a row to win
 #               agent.InteractiveAgent("human"),    # player 1
-#               aba.AlphaBetaAgent("alphabeta", 4)) # player 2
+#               aba.AlphaBetaAgent("alphabeta", 5)) # player 2
 
 #
 # Human vs. Human
@@ -67,13 +67,13 @@ loss = 0
 tie = 0
 subtimes = []
 for i in range(0, 100):
-    print(f"Depth: 5 Game: {i} {round((games/50)*100, ndigits=1)}% Complete", end="\r")
+    print(f"Depth: 5 Game: {i} {round((games/1000)*100, ndigits=1)}% Complete", end="\r")
     tx = time.time()
     g = game.Game(7, # width
                   6, # height
                   4, # tokens in a row to win
-                  agent.RandomAgent("random"),        # player 1
-                  aba.AlphaBetaAgent("alphabeta", 5)) # player 2
+                  agent.RandomAgent("random"),
+                  aba.AlphaBetaAgent("alphabeta", 5))
     outcome = g.go()
     if outcome == 2:
         win += 1
@@ -83,7 +83,7 @@ for i in range(0, 100):
         tie += 1
     ts = time.time()
     subtimes.append(ts-tx)
-    games +=1
+    games += 1
 
 t1 = time.time()
 total = t1-t0
