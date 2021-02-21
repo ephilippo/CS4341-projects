@@ -56,46 +56,41 @@ import time
 from numpy import mean
 
 t0 = time.time()
-
 wins = []
 losses = []
 ties = []
 times = []
 av_times = []
-random.seed(6)
 games = 0
-for j in range(2, 7):
-    win = 0
-    loss = 0
-    tie = 0
-    t0 = time.time()
-    subtimes = []
-    for i in range(0, 100):
-        print(f"Depth: {j} Game: {i} {round((games/300)*100, ndigits=1)}% Complete", end="\r")
-        tx = time.time()
-        g = game.Game(7, # width
-                      6, # height
-                      4, # tokens in a row to win
-                      agent.RandomAgent("random"),        # player 1
-                      aba.AlphaBetaAgent("alphabeta", j)) # player 2
-        outcome = g.go()
-        if outcome == 2:
-            win += 1
-        elif outcome == 1:
-            loss += 1
-        else:
-            tie += 1
-        ts = time.time()
-        subtimes.append(ts-tx)
-        games +=1
+win = 0
+loss = 0
+tie = 0
+subtimes = []
+for i in range(0, 100):
+    print(f"Depth: 5 Game: {i} {round((games/50)*100, ndigits=1)}% Complete", end="\r")
+    tx = time.time()
+    g = game.Game(7, # width
+                  6, # height
+                  4, # tokens in a row to win
+                  agent.RandomAgent("random"),        # player 1
+                  aba.AlphaBetaAgent("alphabeta", 5)) # player 2
+    outcome = g.go()
+    if outcome == 2:
+        win += 1
+    elif outcome == 1:
+        loss += 1
+    else:
+        tie += 1
+    ts = time.time()
+    subtimes.append(ts-tx)
+    games +=1
 
-    t1 = time.time()
-    total = t1-t0
-    wins.append(win)
-    losses.append(loss)
-    ties.append(tie)
-    times.append(total)
-    av_times.append(mean(subtimes))
+t1 = time.time()
+total = t1-t0
+wins.append(win)
+losses.append(loss)
+ties.append(tie)
+times.append(total)
+av_times.append(mean(subtimes))
 
-for i in range(0, 5):
-    print("Results for depth-:", i+2, "Wins: ", wins[i], " Losses: ", losses[i], " Ties: ", ties[i], "Win pct: ", (wins[i]/(wins[i]+losses[i]))*100, "Elapsed Time: ", times[i], "Average Time: ", av_times[i])
+print("Results for depth-:", 5, "Wins: ", wins[0], " Losses: ", losses[0], " Ties: ", ties[0], "Win pct: ", (wins[0]/(wins[0]+losses[0]))*100, "Elapsed Time: ", times[0], "Average Time: ", av_times[0])

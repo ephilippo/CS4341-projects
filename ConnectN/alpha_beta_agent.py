@@ -29,98 +29,6 @@ class AlphaBetaAgent(agent.Agent):
     def terminalTest(self, brd):
         return brd.get_outcome() != 0
 
-    def checkLines(self, brd, x, y, dx, dy, N, t):
-        # Avoid out-of-bounds errors
-        print("Boardn during check line: ", brd.n)
-        if ((x + (N-1) * dx >= brd.w) or
-                (y + (N-1) * dy < 0) or (y + (N-1) * dy >= brd.h)):
-            print("outta bounds...")
-            return False
-        # Go through elements
-        count = 0
-        holes = 0
-        if ((x - dx < brd.w) or (y - dy >= 0) or (y - dy < brd.h) or (x - dx >= 0)):
-            if brd.board[y - dy][x - dx] == 0:
-                holes += 1
-
-        for i in range(1, N):
-            print("checklines", i)
-            if not(brd.board[y + i*dy][x + i*dx] == t or brd.board[y + i*dy][x + i*dx] == 0):
-                print("opponent piece")
-                break
-            elif brd.board[y + i*dy][x + i*dx] == t:
-                print("mypiece")
-                count += 1
-            else:
-                holes += 1
-        if (count == brd.n-1) and ((count + holes >= N) or (brd.n == N)):
-            print(count, holes, N)
-            print(brd.n, " in a row!", x, y, dx, dy)
-            return True
-        else:
-            print(count, holes, N)
-            print(brd.n, " too many holes", x, y, dx, dy)
-            return False
-
-    def anyCheckLines(self, brd, x, y, N, t):
-        print("Boardn pre checkline: ", brd.n)
-        count = 0
-        if self.checkLines(brd, x, y, 1, 0, N, t):
-            count += 1
-        if self.checkLines(brd, x, y, 0, 1, N, t):
-            count += 1
-        if self.checkLines(brd, x, y, 1, 1, N, t):
-            count += 1
-        if self.checkLines(brd, x, y, 1, -1, N, t):
-            count += 1
-        print("count: ", count)
-        return count
-
-    def heuristic_2(self, brd, col):
-        board = brd.copy()
-        vert = 0
-        for i in range(board.h-1, -1, -1):
-            if brd.board[i][col] != 0:
-                vert = i
-                print("inserted column and y: ", vert)
-                break
-        t = board.board[vert][col]
-        N = brd.n
-        myInaRows = []
-        oppInaRows = []
-        for i in range(N-1):
-            print("heuristic_i", i)
-            board.n = N - i
-            print("Boardn heur: ", board.n)
-            mine = 0
-            opp = 0
-            for x in range(board.w):
-                for y in range(board.h):
-                    if board.board[y][x] != 0:
-                        count = self.anyCheckLines(board, x, y, N, board.board[y][x])
-                        print("Boardn after check: ", board.n)
-                        if count > 0:
-                            #print("Here")
-                            if board.board[y][x] == t:
-                                print("adding mine")
-                                mine += count
-                            else:
-                                print("adding opp")
-                                opp += count
-            myInaRows.append(mine)
-            oppInaRows.append(opp)
-        print("mine: ", myInaRows)
-        print("opp: ", oppInaRows)
-        total = []
-        for i in range(N-1):
-            total.append(myInaRows[i]*((10-(N-1))**(N-1)) - oppInaRows[i]*((10-(N-1))**(N-1)))
-        suma = 0
-        for i in range(N-1):
-            suma += total[i]
-        print("suma: ", suma)
-        return suma
-
-
     def heuristic(self, brd, col, maximizingPlayer):
         #print("calling heuristic...")
 
@@ -181,34 +89,47 @@ class AlphaBetaAgent(agent.Agent):
                 mine = 0
                 hole = 0
                 opp = 0
+                temp = []
                 for j in range(brd.n):
-                    if pieces[i+j] == t:
-                        mine += 1
-                    elif pieces[i+j] == 0:
+                    temp.append(pieces[i+j])
+                sets.append(temp)
+
+            subset_num = 0
+            for subset in sets:
+                subset.reverse()
+                i = subset_num
+                while i < len(subset):
+                    max += subset[subset_num] * 10**(10-2*i)
+                    i += 1
+                subset_num += 1
+
+
+            '''if pieces[i+j] == t:
+                mine += 1
+                elif pieces[i+j] == 0:
                         hole += 1
                     else:
-                        opp += 1
-                sets.append([mine, hole, opp])
+                        opp += 1'''
+                #sets.append([mine, hole, opp])
             #print("Sets: ", sets)
 
-            count = []
+            '''count = []
             cnt = 0
             for each in sets:
                 if each[2] == brd.n-1:
                     max += 10**10
                 elif each[0] == brd.n-1:
-                    max += 10**10
+                    max += 10**15
                 elif each[2] == brd.n-2:
                     max += 10**5
                 elif each[0] == brd.n-2:
-                    max += 10**5
+                    max += 10**10
                 else:
                     for i in range(brd.n-3, -1, -1):
                         for j in range(brd.n-3, -1, -1):
                             if each == [i, brd.n-i-j, j]:
-                                max += 5**(i*j)
+                                max += 5**(i*j)'''
             return max
-
 
         y = 0
         for i in range(brd.h-1, -1, -1):
@@ -226,9 +147,7 @@ class AlphaBetaAgent(agent.Agent):
         #print("Total Value: ", value)
         return value
 
-
     def staticEval(self, brd, col, maximizingPlayer):
-        board = brd.copy().board
         value = self.heuristic(brd, col, maximizingPlayer)
         return value
 
@@ -285,7 +204,7 @@ class AlphaBetaAgent(agent.Agent):
     def go(self, brd):
         """Search for the best move (choice of column for the token)"""
         # Your code here
-        value, move = self.minimax(brd, -1, self.max_depth, -99999999, 99999999, True)
+        value, move = self.minimax(brd, -1, self.max_depth, -10**15, 10**15, True)
         #print("Results!: ", value, move)
 
         return move
