@@ -13,7 +13,7 @@ sys.path.insert(1, '../group22')
 from testcharacter import TestCharacter
 
 # Uncomment this if you want the interactive character
-#from interactivecharacter import InteractiveCharacter
+# from interactivecharacter import InteractiveCharacter
 
 # Create the game
 g = Game.fromfile('map.txt')
@@ -35,7 +35,7 @@ g.add_character(TestCharacter("me", # name
 # Run!
 
 # Use this if you want to press ENTER to continue at each step
-# g.go(0)
+g.go(0)
 
 # Use this if you want to proceed automatically
-g.go(1)
+# g.go(1)
