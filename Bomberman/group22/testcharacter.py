@@ -22,6 +22,82 @@ class TestCharacter(CharacterEntity):
     if monster(s), have to dodge as well as follow A*
     """
 
+    def do(self, wrld):
+        '''if state1:
+            #stuff'''
+        path = self.aStar(wrld.exitcell[0], wrld.exitcell[1], wrld)
+        if self.monstersInPlay(wrld) > 0 and not(self.isSafe(wrld)): # if there are more than 0 monsters
+            if len(self.wallsInWay(wrld, set(path))) > 0: # if our a* path is blocked by a wall at any point
+                # need to blow up walls
+            else: # otherwise move to the exit
+                # move to exit using expectimax
+        else:
+            # Astar to exit (no monsters)
+            if len(self.wallsInWay(wrld, set(path))) > 0: # if our a* path is blocked by a wall at any point
+                # need to blow up walls
+            else: # otherwise move to the exit
+                self.move(path[1][0]-self.x, path[1][1]-self.y)
+
+        path_set = set(path)
+        print(path)
+        self.move(path[1][0]-self.x, path[1][1]-self.y)
+        self.printAStar(path_set, wrld)
+
+
+        print(wrld.grid)
+
+    def wallsInWay(self, wrld, path_set):
+        wallsInWay = set()
+        for i in range(wrld.width()):
+            for j in range(wrld.height()):
+                if wrld.grid[i][j] and ((i, j) in path_set):
+                    wallsInWay.add((i, j))
+        return wallsInWay
+
+
+    def isSafe(self, wrld):
+        current = (self.x, self.y)
+        indexes = self.fieldOfView(wrld, current)
+        for val in indexes:
+            if val in wrld.monsters:
+                return False
+        return True
+
+
+    def fieldOfView(self, wrld, current):
+        indexes = []
+        for mul in [1, 2, 3]:
+            for dx in [-1, 0, 1]:
+                # Avoid out-of-bound indexing
+                if (current[0] + dx*mul >= 0) and (current[0] + dx*mul < wrld.width()):
+                    # Loop through delta y
+                    for dy in [-1, 0, 1]:
+                        # Avoid out-of-bound indexing
+                        if (current[1] + dy*mul >= 0) and (current[1] + dy*mul < wrld.height()):
+                            if (not (dx*mul == 0 and dy*mul == 0)):
+                                indexes.append(self.index(current[0] + dx*mul, current[1] + dy*mul))
+        return indexes
+
+
+    def monstersInPlay(self, wrld):
+        return len(wrld.monsters)
+
+
+    def explosionInPlay(self, wrld):
+        # TODO: check for bomb or fire(explosion) on the board
+        if len(wrld.explosions):
+            return True
+        else:
+            return False
+
+
+    def bombInPlay(self, wrld):
+        # TODO: check for bomb or fire(explosion) on the board
+        if len(wrld.bombs):
+            return True
+        else:
+            return False
+
     def expectimax(self, brd, col, depth, alpha, beta, maximizingPlayer):
         if depth == 0 or self.terminalTest(brd):
             return self.staticEval(brd, col), col
@@ -49,33 +125,6 @@ class TestCharacter(CharacterEntity):
                 if beta <= alpha:
                     break
             return minEval, best_action
-
-    #def states:
-
-
-    def do(self, wrld):
-        '''if state1:
-            #stuff'''
-
-
-        path = self.aStar(wrld.exitcell[0], wrld.exitcell[1], wrld)
-        path_set = set(path)
-        print(path)
-        self.move(path[1][0]-self.x, path[1][1]-self.y)
-        self.printAStar(path_set, wrld)
-        wallsInWay = set()
-        for i in range(wrld.width()):
-            for j in range(wrld.height()):
-                if wrld.grid[i][j] and ((i, j) in path_set):
-                    wallsInWay.add((i, j))
-
-        print(wrld.grid)
-
-
-    def bombInPlay(self, wrld):
-        # TODO: check for bomb or fire(explosion) on the board
-        pass
-
 
     def aStar(self, x, y, wrld):
         # A* Implementation
