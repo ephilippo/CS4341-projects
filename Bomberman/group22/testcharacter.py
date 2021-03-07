@@ -24,7 +24,33 @@ class TestCharacter(CharacterEntity):
 
     """
 
-
+    def expectimax(self, brd, col, depth, alpha, beta, maximizingPlayer):
+        if depth == 0 or self.terminalTest(brd):
+            return self.staticEval(brd, col), col
+        if maximizingPlayer:
+            maxEval = -10**15
+            best_action = col
+            for child in self.get_successors(brd):  # getting the children of the current node
+                evalu, column = self.minimax(child[0], child[1], depth-1, alpha, beta, not(maximizingPlayer))
+                if max(maxEval, evalu) > maxEval:
+                    maxEval = evalu
+                    best_action = child[1]  # the best move will have the best value
+                alpha = max(alpha, evalu)  # alpha-beta pruning
+                if beta <= alpha:
+                    break
+            return maxEval, best_action
+        else:
+            expectival = 0
+            best_action = col
+            for child in self.get_successors(brd):  # getting the children of the current node
+                evalu, column = self.minimax(child[0], child[1], depth-1, alpha, beta, not(maximizingPlayer))
+                if min(minEval, evalu) < minEval:
+                    minEval = evalu
+                    best_action = child[1]  # the best move will have the best value
+                beta = min(beta, evalu)  # alpha-beta pruning
+                if beta <= alpha:
+                    break
+            return minEval, best_action
 
     #def states:
 
