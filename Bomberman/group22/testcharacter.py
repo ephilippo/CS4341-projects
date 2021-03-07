@@ -4,7 +4,7 @@ import sys
 sys.path.insert(0, '../bomberman')
 # Import necessary stuff
 from entity import CharacterEntity
-from colorama import Fore, Back
+from colorama import Fore, Back, Style
 
 # my imports
 from queue import PriorityQueue
@@ -13,9 +13,40 @@ import math
 
 class TestCharacter(CharacterEntity):
 
+    """
+    no monsters and readily available exit
+    no monsters but need to blow up walls
+    one monster with no walls
+        with walls
+    2 monsters with no walls
+        with walls
+
+
+    """
+
+
+
+    #def states:
+
+
     def do(self, wrld):
+        '''if state1:
+            #stuff'''
+
+
         path = self.aStar(wrld.exitcell[0], wrld.exitcell[1], wrld)
+        path_set = set(path)
         print(path)
+        self.move(path[1][0]-self.x, path[1][1]-self.y)
+        self.printAStar(path_set, wrld)
+        wallsInWay = set()
+        for i in range(wrld.width()):
+            for j in range(wrld.height()):
+                if wrld.grid[i][j] and ((i, j) in path_set):
+                    wallsInWay.add((i, j))
+
+        print(wrld.grid)
+
 
     def aStar(self, x, y, wrld):
         # A* Implementation
@@ -27,10 +58,9 @@ class TestCharacter(CharacterEntity):
         cost_so_far = dict()
         came_from[start] = None
         cost_so_far[start] = 0
-
         while not frontier.empty():
             current = frontier.get()[1]
-            if (current == goal):
+            if current == goal:
                 break
             for next in self.neighbors(current, wrld):
                 new_cost = cost_so_far[current] + self.cost(next, wrld)
@@ -39,22 +69,21 @@ class TestCharacter(CharacterEntity):
                     priority = new_cost + self.heuristic(goal, next)
                     frontier.put((priority, next))
                     came_from[next] = current
-
         path = [goal]
         tracker = goal
         while came_from[tracker]:
             tracker = came_from[tracker]
             path.append(tracker)
             print(tracker)
-
-        return path.reverse()
+        path.reverse()
+        return path
 
     def heuristic(self, goal, next):
         return math.sqrt((goal[0] - next[0]) ** 2 + (goal[1] - next[1]) ** 2)
 
     def cost(self, next, wrld):
-        if (wrld.wall_at(next[0], next[1])):
-            return 10
+        if wrld.wall_at(next[0], next[1]):
+            return wrld.bomb_time + wrld.expl_duration
         else:
             return 1
 
@@ -70,3 +99,40 @@ class TestCharacter(CharacterEntity):
                         if (not (dx == 0 and dy == 0)):
                             neighbors.append((current[0] + dx, current[1] + dy))
         return neighbors
+
+    def printAStar(self, path_set, wrld):
+        border = "+" + "-" * wrld.width() + "+\n"
+        sys.stdout.write(border)
+        for y in range(wrld.height()):
+            sys.stdout.write("|")
+            for x in range(wrld.width()):
+                if wrld.characters_at(x,y):
+                    for c in wrld.characters_at(x,y):
+                        sys.stdout.write(Back.GREEN + c.avatar)
+                elif wrld.monsters_at(x,y):
+                    for m in wrld.monsters_at(x,y):
+                        sys.stdout.write(Back.BLUE + m.avatar)
+                elif wrld.exit_at(x,y):
+                    sys.stdout.write(Back.YELLOW + "#")
+                elif wrld.bomb_at(x,y):
+                    sys.stdout.write(Back.MAGENTA + "@")
+                elif wrld.explosion_at(x,y):
+                    sys.stdout.write(Fore.RED + "*")
+                elif wrld.wall_at(x,y):
+                    sys.stdout.write(Back.WHITE + " ")
+                elif (x, y) in path_set:
+                    sys.stdout.write(Back.BLUE + " ")
+                else:
+                    tile = False
+                    for k,clist in wrld.characters.items():
+                        for c in clist:
+                            if c.tiles.get((x,y)):
+                                sys.stdout.write(c.tiles[(x,y)] + ".")
+                                tile = True
+                                break
+                    if not tile:
+                        sys.stdout.write(" ")
+                sys.stdout.write(Style.RESET_ALL)
+            sys.stdout.write("|\n")
+        sys.stdout.write(border)
+        sys.stdout.flush()
