@@ -14,14 +14,12 @@ import math
 class TestCharacter(CharacterEntity):
 
     """
-    no monsters and readily available exit
-    no monsters but need to blow up walls
-    one monster with no walls
-        with walls
-    2 monsters with no walls
-        with walls
+    no walls       -moving
+    walls          -planting bomb
+    bomb/fire      -avoiding
 
-
+    if no monster, just follow A*
+    if monster(s), have to dodge as well as follow A*
     """
 
     def expectimax(self, brd, col, depth, alpha, beta, maximizingPlayer):
@@ -72,6 +70,11 @@ class TestCharacter(CharacterEntity):
                     wallsInWay.add((i, j))
 
         print(wrld.grid)
+
+
+    def bombInPlay(self, wrld):
+        # TODO: check for bomb or fire(explosion) on the board
+        pass
 
 
     def aStar(self, x, y, wrld):
