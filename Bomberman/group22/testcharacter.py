@@ -20,31 +20,35 @@ class TestCharacter(CharacterEntity):
 
     if no monster, just follow A*
     if monster(s), have to dodge as well as follow A*
+
+    staticEval
+    terminalTest
+    get_successors
+
     """
 
     def do(self, wrld):
-        '''if state1:
-            #stuff'''
+        x = wrld.me(self).x
+        y = wrld.me(self).y
         path = self.aStar(wrld.exitcell[0], wrld.exitcell[1], wrld)
+        path_set = set(path)
+        print(path)
+        self.printAStar(path_set, wrld)
+
         if self.monstersInPlay(wrld) > 0 and not(self.isSafe(wrld)): # if there are more than 0 monsters
             if len(self.wallsInWay(wrld, set(path))) > 0: # if our a* path is blocked by a wall at any point
                 # need to blow up walls
+                pass
             else: # otherwise move to the exit
+                pass
                 # move to exit using expectimax
         else:
             # Astar to exit (no monsters)
             if len(self.wallsInWay(wrld, set(path))) > 0: # if our a* path is blocked by a wall at any point
-                # need to blow up walls
+                pass# need to blow up walls
             else: # otherwise move to the exit
-                self.move(path[1][0]-self.x, path[1][1]-self.y)
+                self.move(path[1][0]-x, path[1][1]-y)
 
-        path_set = set(path)
-        print(path)
-        self.move(path[1][0]-self.x, path[1][1]-self.y)
-        self.printAStar(path_set, wrld)
-
-
-        print(wrld.grid)
 
     def wallsInWay(self, wrld, path_set):
         wallsInWay = set()
@@ -56,26 +60,27 @@ class TestCharacter(CharacterEntity):
 
 
     def isSafe(self, wrld):
-        current = (self.x, self.y)
-        indexes = self.fieldOfView(wrld, current)
+        indexes = self.fieldOfView(wrld)
         for val in indexes:
             if val in wrld.monsters:
                 return False
         return True
 
 
-    def fieldOfView(self, wrld, current):
+    def fieldOfView(self, wrld):
+        x = wrld.me(self).x
+        y = wrld.me(self).y
         indexes = []
         for mul in [1, 2, 3]:
             for dx in [-1, 0, 1]:
                 # Avoid out-of-bound indexing
-                if (current[0] + dx*mul >= 0) and (current[0] + dx*mul < wrld.width()):
+                if (x + dx*mul >= 0) and (x + dx*mul < wrld.width()):
                     # Loop through delta y
                     for dy in [-1, 0, 1]:
                         # Avoid out-of-bound indexing
-                        if (current[1] + dy*mul >= 0) and (current[1] + dy*mul < wrld.height()):
+                        if (y + dy*mul >= 0) and (y + dy*mul < wrld.height()):
                             if (not (dx*mul == 0 and dy*mul == 0)):
-                                indexes.append(self.index(current[0] + dx*mul, current[1] + dy*mul))
+                                indexes.append(self.index(x + dx*mul, y + dy*mul))
         return indexes
 
 
@@ -98,6 +103,55 @@ class TestCharacter(CharacterEntity):
         else:
             return False
 
+    def staticEval(self):
+
+        pass
+
+    def terminalTest(self, wrld):
+        x = wrld.me(self).x
+        y = wrld.me(self).y
+        # if we are in the same place as a monster then we are dead
+        if wrld.monster_at(x, y):
+            return True
+        elif wrld.exit_at(x, y):
+            return True
+        elif wrld.explosion_at(x, y):
+            return True
+        else:
+            return False
+
+    def get_successors(self, wrld):
+        """
+        return all the possible next world states from the current world state
+        """
+        x = wrld.me(self).x
+        y = wrld.me(self).y
+        succ = []
+        char_moves = self.neighbors((x, y), wrld)
+        for val in char_moves:
+            wrld.me.move(val[0], val[1])
+            newwrld = wrld.next()
+            m = next(iter(wrld.monsters.values()))
+            while m:
+                for dx in [-1, 0, 1]:
+                    # Avoid out-of-bound indexing
+                    if (m.x + dx >= 0) and (m.x + dx < wrld.width()):
+                        # Loop through delta y
+                        for dy in [-1, 0, 1]:
+                            if (dx != 0) or (dy != 0):
+                            # Avoid out-of-bound indexing
+                                if (m.y + dy >= 0) and (m.y + dy < wrld.height()):
+                                    if (not (dx == 0 and dy == 0)):
+                                        if not wrld.wall_at(m.x+dx, m.y+dy):
+                                            # Set move in wrld
+                                            m.move(dx, dy)
+                                            # Get new world
+                                            succ.append(newwrld.next())
+        return succ
+
+
+
+
     def expectimax(self, brd, col, depth, alpha, beta, maximizingPlayer):
         if depth == 0 or self.terminalTest(brd):
             return self.staticEval(brd, col), col
@@ -105,7 +159,7 @@ class TestCharacter(CharacterEntity):
             maxEval = -10**15
             best_action = col
             for child in self.get_successors(brd):  # getting the children of the current node
-                evalu, column = self.minimax(child[0], child[1], depth-1, alpha, beta, not(maximizingPlayer))
+                evalu, column = self.expectimax(child[0], child[1], depth-1, alpha, beta, not(maximizingPlayer))
                 if max(maxEval, evalu) > maxEval:
                     maxEval = evalu
                     best_action = child[1]  # the best move will have the best value
@@ -117,7 +171,7 @@ class TestCharacter(CharacterEntity):
             expectival = 0
             best_action = col
             for child in self.get_successors(brd):  # getting the children of the current node
-                evalu, column = self.minimax(child[0], child[1], depth-1, alpha, beta, not(maximizingPlayer))
+                evalu, column = self.expectimax(child[0], child[1], depth-1, alpha, beta, not(maximizingPlayer))
                 if min(minEval, evalu) < minEval:
                     minEval = evalu
                     best_action = child[1]  # the best move will have the best value
@@ -126,11 +180,13 @@ class TestCharacter(CharacterEntity):
                     break
             return minEval, best_action
 
-    def aStar(self, x, y, wrld):
+    def aStar(self, goal_x, goal_y, wrld):
         # A* Implementation
+        x = wrld.me(self).x
+        y = wrld.me(self).y
         frontier = PriorityQueue()
-        start = (self.x, self.y)
-        goal = (x, y)
+        start = (x, y)
+        goal = (goal_x, goal_y)
         frontier.put((0, start))
         came_from = dict()
         cost_so_far = dict()
