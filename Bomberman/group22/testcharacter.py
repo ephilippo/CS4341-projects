@@ -34,8 +34,11 @@ class TestCharacter(CharacterEntity):
         path_set = set(path)
         print(path)
         self.printAStar(path_set, wrld)
+        _, move = self.expectimax(wrld, (0,0), 4, True)
+        print("Moves: ", move[0], move[1])
+        self.move(move[0], move[1])
 
-        if self.monstersInPlay(wrld) > 0 and not(self.isSafe(wrld)): # if there are more than 0 monsters
+        '''if self.monstersInPlay(wrld) > 0 and not(self.isSafe(wrld)): # if there are more than 0 monsters
             if len(self.wallsInWay(wrld, set(path))) > 0: # if our a* path is blocked by a wall at any point
                 # need to blow up walls
                 pass
@@ -47,7 +50,7 @@ class TestCharacter(CharacterEntity):
             if len(self.wallsInWay(wrld, set(path))) > 0: # if our a* path is blocked by a wall at any point
                 pass# need to blow up walls
             else: # otherwise move to the exit
-                self.move(path[1][0]-x, path[1][1]-y)
+                self.move(path[1][0]-x, path[1][1]-y)'''
 
 
     def wallsInWay(self, wrld, path_set):
@@ -103,15 +106,22 @@ class TestCharacter(CharacterEntity):
         else:
             return False
 
-    def staticEval(self):
+    def staticEval(self, wrld):
+        m_dist_penalty = 0
+        for monster in wrld.monsters.items():
+            dist = len(self.aStar(monster.x, monster.y, wrld))
+            if dist <= 2:
+                m_dist_penalty -= 66*(1/(1+dist))
+        exit = len(self.aStar(wrld.me.x, wrld.me.y, wrld))
+        score = exit + m_dist_penalty
+        return score
 
-        pass
 
     def terminalTest(self, wrld):
         x = wrld.me(self).x
         y = wrld.me(self).y
         # if we are in the same place as a monster then we are dead
-        if wrld.monster_at(x, y):
+        if wrld.monsters_at(x, y):
             return True
         elif wrld.exit_at(x, y):
             return True
@@ -129,56 +139,59 @@ class TestCharacter(CharacterEntity):
         succ = []
         char_moves = self.neighbors((x, y), wrld)
         for val in char_moves:
-            wrld.me.move(val[0], val[1])
+            wrld.me(self).move(val[0]-x, val[1]-y)
             newwrld = wrld.next()
-            m = next(iter(wrld.monsters.values()))
-            while m:
-                for dx in [-1, 0, 1]:
-                    # Avoid out-of-bound indexing
-                    if (m.x + dx >= 0) and (m.x + dx < wrld.width()):
-                        # Loop through delta y
-                        for dy in [-1, 0, 1]:
-                            if (dx != 0) or (dy != 0):
-                            # Avoid out-of-bound indexing
-                                if (m.y + dy >= 0) and (m.y + dy < wrld.height()):
-                                    if (not (dx == 0 and dy == 0)):
-                                        if not wrld.wall_at(m.x+dx, m.y+dy):
-                                            # Set move in wrld
-                                            m.move(dx, dy)
-                                            # Get new world
-                                            succ.append(newwrld.next())
+            if wrld.monsters:
+                m = next(iter(wrld.monsters.values()))
+                while m:
+                    for dx in [-1, 0, 1]:
+                        # Avoid out-of-bound indexing
+                        if (m.x + dx >= 0) and (m.x + dx < wrld.width()):
+                            # Loop through delta y
+                            for dy in [-1, 0, 1]:
+                                if (dx != 0) or (dy != 0):
+                                # Avoid out-of-bound indexing
+                                    if (m.y + dy >= 0) and (m.y + dy < wrld.height()):
+                                        if (not (dx == 0 and dy == 0)):
+                                            if not wrld.wall_at(m.x+dx, m.y+dy):
+                                                # Set move in wrld
+                                                m.move(dx, dy)
+                                                # Get new world
+                                                succ.append((newwrld.next(), (val[0]-x, val[1]-y)))
+            else:
+                succ.append((newwrld, (val[0]-x, val[1]-y)))
         return succ
 
 
-
-
-    def expectimax(self, brd, col, depth, alpha, beta, maximizingPlayer):
-        if depth == 0 or self.terminalTest(brd):
-            return self.staticEval(brd, col), col
+    def expectimax(self, wrld, col, depth, maximizingPlayer):
+        if depth == 0 or self.terminalTest(wrld):
+            return self.staticEval(wrld), col
         if maximizingPlayer:
             maxEval = -10**15
-            best_action = col
-            for child in self.get_successors(brd):  # getting the children of the current node
-                evalu, column = self.expectimax(child[0], child[1], depth-1, alpha, beta, not(maximizingPlayer))
+            best_action = (0,0)
+            for child in self.get_successors(wrld):  # getting the children of the current node
+                evalu, column = self.expectimax(child[0], child[1], depth-1, not(maximizingPlayer))
                 if max(maxEval, evalu) > maxEval:
                     maxEval = evalu
                     best_action = child[1]  # the best move will have the best value
-                alpha = max(alpha, evalu)  # alpha-beta pruning
+                '''alpha = max(alpha, evalu)  # alpha-beta pruning
                 if beta <= alpha:
-                    break
+                    break'''
             return maxEval, best_action
         else:
             expectival = 0
-            best_action = col
-            for child in self.get_successors(brd):  # getting the children of the current node
-                evalu, column = self.expectimax(child[0], child[1], depth-1, alpha, beta, not(maximizingPlayer))
-                if min(minEval, evalu) < minEval:
-                    minEval = evalu
-                    best_action = child[1]  # the best move will have the best value
-                beta = min(beta, evalu)  # alpha-beta pruning
+            best_action = (0, 0)
+            succ = self.get_successors(wrld)
+            length = len(succ)
+            sum_vals = 0
+            for child in succ:  # getting the children of the current node
+                evalu, column = self.expectimax(child[0], child[1], depth-1, not(maximizingPlayer))
+                sum_vals += evalu
+                '''beta = min(beta, evalu)  # alpha-beta pruning
                 if beta <= alpha:
-                    break
-            return minEval, best_action
+                    break'''
+            expectival = sum_vals/length
+            return expectival, best_action
 
     def aStar(self, goal_x, goal_y, wrld):
         # A* Implementation
