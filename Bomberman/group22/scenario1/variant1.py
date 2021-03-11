@@ -35,7 +35,7 @@ g.add_character(TestCharacter("me", # name
 # Run!
 
 # Use this if you want to press ENTER to continue at each step
-g.go()
+g.go(1)
 
 # Use this if you want to proceed automatically
 # g.go(1)
