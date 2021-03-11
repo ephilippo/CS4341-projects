@@ -41,7 +41,7 @@ class TestCharacter(CharacterEntity):
                 # need to blow up walls
                 pass
             else: # otherwise move to the exit
-                _, move = self.expectimax(wrld, (0,0), 4, True)
+                _, move = self.expectimax(wrld, (0,0), 2, True)
                 print("Moves: ", move[0], move[1])
                 self.move(move[0], move[1])
         else:
@@ -106,23 +106,24 @@ class TestCharacter(CharacterEntity):
             return False
 
     def staticEval(self, wrld):
-        m_dist_penalty = 0
-        for monster in wrld.monsters.values():
-            dist = len(self.aStar(monster[0].x, monster[0].y, wrld))
-            if dist <= 2:
-                m_dist_penalty -= 66*(1/(1+dist))
         found = False
+        m_dist_penalty = 0
         for e in wrld.events:
             if e.tpe == e.BOMB_HIT_CHARACTER:
                 exit = 0
                 found = True
             if e.tpe == e.CHARACTER_KILLED_BY_MONSTER:
                 exit = 0
+                m_dist_penalty = -100000000
                 found = True
             if e.tpe == e.CHARACTER_FOUND_EXIT:
                 exit = 0
                 found = True
         if not found:
+            for monster in wrld.monsters.values():
+                dist = len(self.aStar(monster[0].x, monster[0].y, wrld))
+                if dist <= 2:
+                    m_dist_penalty -= 66*(1/(1+dist))
             exit = len(self.aStar(wrld.exitcell[0], wrld.exitcell[1], wrld))
         score = 30 - exit + m_dist_penalty
         print("Score: ", score)
@@ -150,7 +151,6 @@ class TestCharacter(CharacterEntity):
         char_moves = self.neighbors((x, y), wrld)
         for val in char_moves:
             wrld.me(self).move(val[0]-x, val[1]-y)
-            newwrld = wrld.next()[0]
             if wrld.monsters:
                 monsters = next(iter(wrld.monsters.values()))
                 for m in monsters:
@@ -167,9 +167,9 @@ class TestCharacter(CharacterEntity):
                                                 # Set move in wrld
                                                 m.move(dx, dy)
                                                 # Get new world
-                                                succ.append((newwrld.next()[0], val[0]-x, val[1]-y))
+                                                succ.append((wrld.next()[0], val[0]-x, val[1]-y))
             else:
-                succ.append((newwrld, val[0]-x, val[1]-y))
+                succ.append((wrld.next()[0], val[0]-x, val[1]-y))
         return succ
 
 
@@ -293,3 +293,7 @@ class TestCharacter(CharacterEntity):
             sys.stdout.write("|\n")
         sys.stdout.write(border)
         sys.stdout.flush()
+
+
+
+
