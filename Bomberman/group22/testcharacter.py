@@ -14,6 +14,14 @@ import math
 
 class TestCharacter(CharacterEntity):
 
+    def __init__(self, name, avatar, x, y):
+        CharacterEntity.__init__(self, name, avatar, x, y)
+        self.monster_dists = {}
+        self.explosion_dists = {}
+        self.walldists = {}
+        self.exit_dist = None
+
+
     """
     no walls       -moving
     walls          -planting bomb
@@ -25,6 +33,10 @@ class TestCharacter(CharacterEntity):
     staticEval
     terminalTest
     get_successors
+    
+    check immediate area around ourselves value moves that leave more exits   
+    
+    
 
     """
 
@@ -33,16 +45,16 @@ class TestCharacter(CharacterEntity):
         y = wrld.me(self).y
         path = self.aStar(wrld.exitcell[0], wrld.exitcell[1], wrld)
         path_set = set(path)
-        print(path)
-        self.printAStar(path_set, wrld)
+        #print(path)
+        #self.printAStar(path_set, wrld)
 
         if self.monstersInPlay(wrld) > 0 and not(self.isSafe(wrld)): # if there are more than 0 monsters
             if len(self.wallsInWay(wrld, set(path))) > 0: # if our a* path is blocked by a wall at any point
                 # need to blow up walls
                 pass
             else: # otherwise move to the exit
-                _, move = self.expectimax(wrld, (0,0), 2, True)
-                print("Moves: ", move[0], move[1])
+                _, move = self.expectimax(wrld, (0, 0), 2, True)
+                #print("Moves: ", move[0], move[1])
                 self.move(move[0], move[1])
         else:
             # Astar to exit (no monsters)
@@ -61,29 +73,15 @@ class TestCharacter(CharacterEntity):
         return wallsInWay
 
 
-    def isSafe(self, wrld):
-        indexes = self.fieldOfView(wrld)
-        for val in indexes:
-            if val in wrld.monsters:
-                return False
-        return True
+    def needExpectiMax(self, wrld):
+        for idx, mon in wrld.monsters.items():
+            mon_x = idx % wrld.width()
+            mon_y = (idx-mon_x)/wrld.width()
+            path = self.aStar(mon_x, mon_y, wrld)
+            if len(path) <= 3:
+                return True
+        return False
 
-
-    def fieldOfView(self, wrld):
-        x = wrld.me(self).x
-        y = wrld.me(self).y
-        indexes = []
-        for mul in [1, 2, 3]:
-            for dx in [-1, 0, 1]:
-                # Avoid out-of-bound indexing
-                if (x + dx*mul >= 0) and (x + dx*mul < wrld.width()):
-                    # Loop through delta y
-                    for dy in [-1, 0, 1]:
-                        # Avoid out-of-bound indexing
-                        if (y + dy*mul >= 0) and (y + dy*mul < wrld.height()):
-                            if (not (dx*mul == 0 and dy*mul == 0)):
-                                indexes.append(wrld.index(x + dx*mul, y + dy*mul))
-        return indexes
 
 
     def monstersInPlay(self, wrld):
@@ -107,7 +105,7 @@ class TestCharacter(CharacterEntity):
 
     def staticEval(self, wrld):
         found = False
-        m_dist_penalty = 0
+        m_dist_penalty = 1
         for e in wrld.events:
             if e.tpe == e.BOMB_HIT_CHARACTER:
                 exit = 0
@@ -120,13 +118,20 @@ class TestCharacter(CharacterEntity):
                 exit = 0
                 found = True
         if not found:
+            m_dist_penalty = 0
             for monster in wrld.monsters.values():
-                dist = len(self.aStar(monster[0].x, monster[0].y, wrld))
-                if dist <= 2:
-                    m_dist_penalty -= 66*(1/(1+dist))
-            exit = len(self.aStar(wrld.exitcell[0], wrld.exitcell[1], wrld))
+                path = self.aStar(monster[0].x, monster[0].y, wrld)
+                #path_set = set(path)
+                #self.printAStar(path_set, wrld)
+                dist = len(path)
+                if dist <= 3:
+                    m_dist_penalty -= 66*dist
+            path = self.aStar(wrld.exitcell[0], wrld.exitcell[1], wrld)
+            #path_set = set(path)
+            #self.printAStar(path_set, wrld)
+            exit = len(path)
         score = 30 - exit + m_dist_penalty
-        print("Score: ", score)
+        #print("Score: ", score)
         return score
 
 
@@ -174,7 +179,9 @@ class TestCharacter(CharacterEntity):
 
 
     def expectimax(self, wrld, col, depth, maximizingPlayer):
-        print("Depth: ", depth)
+        #print("Depth: ", depth)
+        #print("World: ")
+        #wrld.printit()
         if depth == 0 or self.terminalTest(wrld):
             return self.staticEval(wrld), col
         if maximizingPlayer:
@@ -188,6 +195,8 @@ class TestCharacter(CharacterEntity):
                 '''alpha = max(alpha, evalu)  # alpha-beta pruning
                 if beta <= alpha:
                     break'''
+            #print(best_action)
+            #print("MaxEval: ", maxEval)
             return maxEval, best_action
         else:
             best_action = (0, 0)
@@ -201,38 +210,41 @@ class TestCharacter(CharacterEntity):
                 if beta <= alpha:
                     break'''
             expectival = sum_vals/length
+            #print("Expectival: ", expectival)
             return expectival, best_action
 
     def aStar(self, goal_x, goal_y, wrld):
         # A* Implementation
-        x = wrld.me(self).x
-        y = wrld.me(self).y
-        frontier = PriorityQueue()
-        start = (x, y)
-        goal = (goal_x, goal_y)
-        frontier.put((0, start))
-        came_from = dict()
-        cost_so_far = dict()
-        came_from[start] = None
-        cost_so_far[start] = 0
-        while not frontier.empty():
-            current = frontier.get()[1]
-            if current == goal:
-                break
-            for next in self.neighbors(current, wrld):
-                new_cost = cost_so_far[current] + self.cost(next, wrld)
-                if next not in cost_so_far or new_cost < cost_so_far[next]:
-                    cost_so_far[next] = new_cost
-                    priority = new_cost + self.heuristic(goal, next)
-                    frontier.put((priority, next))
-                    came_from[next] = current
-        path = [goal]
-        tracker = goal
-        while came_from[tracker]:
-            tracker = came_from[tracker]
-            path.append(tracker)
-            #print(tracker)
-        path.reverse()
+        path = []
+        if not self.terminalTest(wrld):
+            x = wrld.me(self).x
+            y = wrld.me(self).y
+            frontier = PriorityQueue()
+            start = (x, y)
+            goal = (goal_x, goal_y)
+            frontier.put((0, start))
+            came_from = dict()
+            cost_so_far = dict()
+            came_from[start] = None
+            cost_so_far[start] = 0
+            while not frontier.empty():
+                current = frontier.get()[1]
+                if current == goal:
+                    break
+                for next in self.neighbors(current, wrld):
+                    new_cost = cost_so_far[current] + self.cost(next, wrld)
+                    if next not in cost_so_far or new_cost < cost_so_far[next]:
+                        cost_so_far[next] = new_cost
+                        priority = new_cost + self.heuristic(goal, next)
+                        frontier.put((priority, next))
+                        came_from[next] = current
+            path = [goal]
+            tracker = goal
+            while came_from[tracker]:
+                tracker = came_from[tracker]
+                path.append(tracker)
+                #print(tracker)
+            path.reverse()
         return path
 
     def heuristic(self, goal, next):
