@@ -48,7 +48,7 @@ class TestCharacter(CharacterEntity):
         #print(path)
         #self.printAStar(path_set, wrld)
 
-        if self.monstersInPlay(wrld) > 0 and not(self.isSafe(wrld)): # if there are more than 0 monsters
+        if self.monstersInPlay(wrld) > 0 and self.needExpectiMax(path, wrld): # if there are more than 0 monsters
             if len(self.wallsInWay(wrld, set(path))) > 0: # if our a* path is blocked by a wall at any point
                 # need to blow up walls
                 pass
@@ -73,12 +73,12 @@ class TestCharacter(CharacterEntity):
         return wallsInWay
 
 
-    def needExpectiMax(self, wrld):
+    def needExpectiMax(self, exit_path, wrld):
         for idx, mon in wrld.monsters.items():
             mon_x = idx % wrld.width()
             mon_y = (idx-mon_x)/wrld.width()
-            path = self.aStar(mon_x, mon_y, wrld)
-            if len(path) <= 3:
+            mon_path = self.aStar(mon_x, mon_y, wrld)
+            if (len(mon_path) <= 4) and (len(mon_path) < len(exit_path)):
                 return True
         return False
 
@@ -105,7 +105,10 @@ class TestCharacter(CharacterEntity):
 
     def staticEval(self, wrld):
         found = False
-        m_dist_penalty = 1
+        m_dist_penalty = 0
+        not_free_spaces = []
+        neighbors = []
+        num_monsters = 1
         for e in wrld.events:
             if e.tpe == e.BOMB_HIT_CHARACTER:
                 exit = 0
@@ -118,19 +121,31 @@ class TestCharacter(CharacterEntity):
                 exit = 0
                 found = True
         if not found:
+            x = wrld.me(self).x
+            y = wrld.me(self).y
+            neighbors = self.neighbors((x, y), wrld)
+            for i in (self.wallsInWay(wrld, set(neighbors))):
+                not_free_spaces.append((i[0], i[1]))
+            for i in neighbors:
+                if wrld.monsters_at(i[0], i[1]):
+                    not_free_spaces.append((i[0], i[1]))
+            #print(free_spaces)
             m_dist_penalty = 0
+            num_monsters = 0
             for monster in wrld.monsters.values():
                 path = self.aStar(monster[0].x, monster[0].y, wrld)
                 #path_set = set(path)
                 #self.printAStar(path_set, wrld)
                 dist = len(path)
-                if dist <= 3:
-                    m_dist_penalty -= 66*dist
+                num_monsters +=1
+                if dist >= 3:
+                    m_dist_penalty += dist
             path = self.aStar(wrld.exitcell[0], wrld.exitcell[1], wrld)
             #path_set = set(path)
             #self.printAStar(path_set, wrld)
             exit = len(path)
-        score = 30 - exit + m_dist_penalty
+        score =  .2*(30 - exit) + .65*(m_dist_penalty/num_monsters) + .15*(1/(1+len(not_free_spaces))) #.4*(30 - exit) + .5*(m_dist_penalty/num_monsters) + .1*(1/(1+len(not_free_spaces)))
+        #score = 1/(1+m_dist_penalty) + 1/(1+exit) - 1/(1+len(free_spaces))
         #print("Score: ", score)
         return score
 
@@ -167,12 +182,12 @@ class TestCharacter(CharacterEntity):
                                 if (dx != 0) or (dy != 0):
                                 # Avoid out-of-bound indexing
                                     if (m.y + dy >= 0) and (m.y + dy < wrld.height()):
-                                        if (not (dx == 0 and dy == 0)):
-                                            if not wrld.wall_at(m.x+dx, m.y+dy):
-                                                # Set move in wrld
-                                                m.move(dx, dy)
-                                                # Get new world
-                                                succ.append((wrld.next()[0], val[0]-x, val[1]-y))
+                                        #if (not (dx == 0 and dy == 0)):
+                                        if not wrld.wall_at(m.x+dx, m.y+dy):
+                                            # Set move in wrld
+                                            m.move(dx, dy)
+                                            # Get new world
+                                            succ.append((wrld.next()[0], val[0]-x, val[1]-y))
             else:
                 succ.append((wrld.next()[0], val[0]-x, val[1]-y))
         return succ
