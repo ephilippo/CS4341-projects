@@ -107,23 +107,24 @@ class TestCharacter(CharacterEntity):
         found = False
         m_dist_penalty = 0
         not_free_spaces = []
-        neighbors = []
+        #neighbors = []
         num_monsters = 1
         for e in wrld.events:
             if e.tpe == e.BOMB_HIT_CHARACTER:
-                exit = 0
+                exit_dist = 0
                 found = True
             if e.tpe == e.CHARACTER_KILLED_BY_MONSTER:
-                exit = 0
+                exit_dist = 0
                 m_dist_penalty = -100000000
                 found = True
             if e.tpe == e.CHARACTER_FOUND_EXIT:
-                exit = 0
+                exit_dist = 0
                 found = True
         if not found:
             x = wrld.me(self).x
             y = wrld.me(self).y
             neighbors = self.neighbors((x, y), wrld)
+            exit_path = self.aStar(wrld.exitcell[0], wrld.exitcell[1], wrld)
             for i in (self.wallsInWay(wrld, set(neighbors))):
                 not_free_spaces.append((i[0], i[1]))
             for i in neighbors:
@@ -132,21 +133,20 @@ class TestCharacter(CharacterEntity):
             #print(free_spaces)
             m_dist_penalty = 0
             num_monsters = 0
-            for monster in wrld.monsters.values():
-                path = self.aStar(monster[0].x, monster[0].y, wrld)
-                #path_set = set(path)
-                #self.printAStar(path_set, wrld)
-                dist = len(path)
-                num_monsters +=1
-                if dist >= 3:
-                    m_dist_penalty += dist
-            path = self.aStar(wrld.exitcell[0], wrld.exitcell[1], wrld)
-            #path_set = set(path)
-            #self.printAStar(path_set, wrld)
-            exit = len(path)
-        score =  .2*(30 - exit) + .65*(m_dist_penalty/num_monsters) + .15*(1/(1+len(not_free_spaces))) #.4*(30 - exit) + .5*(m_dist_penalty/num_monsters) + .1*(1/(1+len(not_free_spaces)))
-        #score = 1/(1+m_dist_penalty) + 1/(1+exit) - 1/(1+len(free_spaces))
-        #print("Score: ", score)
+            for idx, mon in wrld.monsters.items():
+                mon_x = idx % wrld.width()
+                mon_y = int((idx-mon_x)/wrld.width())
+                mon_path = self.aStar(mon_x, mon_y, wrld)
+                if (len(mon_path) <= 4):
+                    dist = len(mon_path)
+                    num_monsters += 1
+                    if dist >= 3:
+                        m_dist_penalty += dist
+            if num_monsters == 0:
+                num_monsters = 1
+            exit_dist = len(exit_path)
+        score = .2*(30 - exit_dist) + .65*(m_dist_penalty/num_monsters) + .15*(1/(1+len(not_free_spaces))) #.4*(30 - exit) + .5*(m_dist_penalty/num_monsters) + .1*(1/(1+len(not_free_spaces)))
+        score = score/((30 - exit_dist)+(m_dist_penalty/num_monsters) + )
         return score
 
 
