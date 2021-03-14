@@ -10,7 +10,7 @@ from colorama import Fore, Back, Style
 from queue import PriorityQueue
 import math
 
-
+# Current score .7*(30 - exit_dist) + 2.3*(m_dist_penalty/num_monsters) + .9*(len(neighbors)-len(not_free_spaces))
 
 class TestCharacter(CharacterEntity):
 
@@ -44,16 +44,18 @@ class TestCharacter(CharacterEntity):
         x = wrld.me(self).x
         y = wrld.me(self).y
         path = self.aStar(wrld.exitcell[0], wrld.exitcell[1], wrld)
-        path_set = set(path)
-        #print(path)
-        #self.printAStar(path_set, wrld)
+        '''path_set = set(path)
+        print(path)
+        self.printAStar(path_set, wrld)'''
 
         if self.monstersInPlay(wrld) > 0 and self.needExpectiMax(path, wrld): # if there are more than 0 monsters
             if len(self.wallsInWay(wrld, set(path))) > 0: # if our a* path is blocked by a wall at any point
                 # need to blow up walls
                 pass
             else: # otherwise move to the exit
-                _, move = self.expectimax(wrld, (0, 0), 2, True)
+                alpha = -100000000
+                beta = 1
+                _, move = self.expectimax(wrld, (0, 0), 2, True, alpha, beta)
                 #print("Moves: ", move[0], move[1])
                 self.move(move[0], move[1])
         else:
@@ -78,7 +80,7 @@ class TestCharacter(CharacterEntity):
             mon_x = idx % wrld.width()
             mon_y = (idx-mon_x)/wrld.width()
             mon_path = self.aStar(mon_x, mon_y, wrld)
-            if (len(mon_path) <= 4) and (len(mon_path) < len(exit_path)):
+            if (len(mon_path) <= 5): # and (len(mon_path) < len(exit_path))
                 return True
         return False
 
@@ -115,7 +117,6 @@ class TestCharacter(CharacterEntity):
                 found = True
             if e.tpe == e.CHARACTER_KILLED_BY_MONSTER:
                 exit_dist = 0
-                m_dist_penalty = -100000000
                 found = True
             if e.tpe == e.CHARACTER_FOUND_EXIT:
                 exit_dist = 0
@@ -138,15 +139,22 @@ class TestCharacter(CharacterEntity):
                 mon_y = int((idx-mon_x)/wrld.width())
                 mon_path = self.aStar(mon_x, mon_y, wrld)
                 num_monsters += 1
+                dist = len(mon_path)
                 if (len(mon_path) >= 4):
-                    m_dist_penalty += 1
+                    m_dist_penalty += dist
+
             if num_monsters == 0:
                 num_monsters = 1
             exit_dist = len(exit_path)
-        sumOfAll = (30 - exit_dist) + (m_dist_penalty/num_monsters) + (len(neighbors)-len(not_free_spaces))
-        score = .5*((30 - exit_dist)) + .4*(m_dist_penalty/num_monsters) + .1*(len(neighbors)-len(not_free_spaces)) #.4*(30 - exit) + .5*(m_dist_penalty/num_monsters) + .1*(1/(1+len(not_free_spaces)))
-        score = score/sumOfAll
-        print(score)
+
+        exit_bias = .1
+        m_dist_bias = 4
+        neighbor_bias = .9
+        score = exit_bias*((wrld.width()+wrld.height()) - exit_dist) + m_dist_bias*(m_dist_penalty/num_monsters) + neighbor_bias*(len(neighbors)-len(not_free_spaces)) #.4*(30 - exit) + .5*(m_dist_penalty/num_monsters) + .1*(1/(1+len(not_free_spaces)))
+        score = score/(exit_bias*(wrld.width()+wrld.height()) + m_dist_bias*(8) + neighbor_bias*(8))
+        # variant 2 .7*(30 - exit_dist) + 2.3*(m_dist_penalty/num_monsters) + .4*(len(neighbors)-len(not_free_spaces))
+        # v2, v3, v4 .7*(30 - exit_dist) + 2.3*(m_dist_penalty/num_monsters) + .9*(len(neighbors)-len(not_free_spaces))
+        #print(score)
         return score
 
 
@@ -169,11 +177,15 @@ class TestCharacter(CharacterEntity):
         y = wrld.me(self).y
         succ = []
         char_moves = self.neighbors((x, y), wrld)
+        #print(char_moves)
         for val in char_moves:
             wrld.me(self).move(val[0]-x, val[1]-y)
             if wrld.monsters:
                 monsters = next(iter(wrld.monsters.values()))
                 for m in monsters:
+                    mon_path = self.aStar(m.x, m.y, wrld)
+                    #if m.name == "stupid" or len(mon_path) > 2:
+                    #print("I'm with stupid")
                     for dx in [-1, 0, 1]:
                         # Avoid out-of-bound indexing
                         if (m.x + dx >= 0) and (m.x + dx < wrld.width()):
@@ -188,42 +200,50 @@ class TestCharacter(CharacterEntity):
                                             m.move(dx, dy)
                                             # Get new world
                                             succ.append((wrld.next()[0], val[0]-x, val[1]-y))
+                        '''else:
+                        #print("I'm with angry")
+                        mon_path.reverse()
+                        dx = mon_path[1][0] - m.x
+                        dy = mon_path[1][1] - m.y
+                        if (m.y + dy >= 0) and (m.y + dy < wrld.height()) and (m.x + dx >= 0) and (m.x + dx < wrld.width()):
+                            #if (not (dx == 0 and dy == 0)):
+                            if not wrld.wall_at(m.x+dx, m.y+dy):
+                                # Set move in wrld
+                                m.move(dx, dy)
+                                # Get new world
+                                succ.append((wrld.next()[0], val[0]-x, val[1]-y))'''
             else:
                 succ.append((wrld.next()[0], val[0]-x, val[1]-y))
         return succ
 
 
-    def expectimax(self, wrld, col, depth, maximizingPlayer):
-        #print("Depth: ", depth)
-        #print("World: ")
-        #wrld.printit()
+    def expectimax(self, wrld, col, depth, maximizingPlayer, alpha, beta):
         if depth == 0 or self.terminalTest(wrld):
             return self.staticEval(wrld), col
         if maximizingPlayer:
             maxEval = -10**15
             best_action = (0, 0)
             for child in self.get_successors(wrld):  # getting the children of the current node
-                evalu, column = self.expectimax(child[0], (child[1], child[2]), depth-1, not(maximizingPlayer))
+                evalu, column = self.expectimax(child[0], (child[1], child[2]), depth-1, not(maximizingPlayer), alpha, beta)
                 if max(maxEval, evalu) > maxEval:
                     maxEval = evalu
                     best_action = (child[1], child[2])  # the best move will have the best value
-                '''alpha = max(alpha, evalu)  # alpha-beta pruning
+                alpha = max(alpha, evalu)  # alpha-beta pruning
                 if beta <= alpha:
-                    break'''
-            #print(best_action)
-            #print("MaxEval: ", maxEval)
+                    break
             return maxEval, best_action
         else:
             best_action = (0, 0)
             succ = self.get_successors(wrld)
-            length = len(succ)
+            length = 0
             sum_vals = 0
             for child in succ:  # getting the children of the current node
-                evalu, column = self.expectimax(child[0], (child[1], child[2]), depth-1, not(maximizingPlayer))
+                evalu, column = self.expectimax(child[0], (child[1], child[2]), depth-1, not(maximizingPlayer), alpha, beta)
                 sum_vals += evalu
-                '''beta = min(beta, evalu)  # alpha-beta pruning
+                beta -= (1 - evalu)   # alpha-beta pruning
+                length += 1
                 if beta <= alpha:
-                    break'''
+                    break
             expectival = sum_vals/length
             #print("Expectival: ", expectival)
             return expectival, best_action
@@ -267,9 +287,10 @@ class TestCharacter(CharacterEntity):
 
     def cost(self, next, wrld):
         if wrld.wall_at(next[0], next[1]):
-            return wrld.bomb_time + wrld.expl_duration
+            cost = 10
         else:
-            return 1
+            cost = 1
+        return cost
 
     def neighbors(self, current, wrld):
         neighbors = []
