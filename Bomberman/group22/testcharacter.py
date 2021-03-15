@@ -34,8 +34,14 @@ class TestCharacter(CharacterEntity):
     terminalTest
     get_successors
     
-    check immediate area around ourselves value moves that leave more exits   
+    check immediate area around ourselves value moves that leave more exits
     
+    what are things that are important to our character
+    
+    always 2-3 moves from monster
+    its okay to cede ground
+    mon dist to exit > our dist to exit + 1
+    staying away from the sides
     
 
     """
@@ -44,9 +50,13 @@ class TestCharacter(CharacterEntity):
         x = wrld.me(self).x
         y = wrld.me(self).y
         path = self.aStar(wrld.exitcell[0], wrld.exitcell[1], wrld)
-        '''path_set = set(path)
+        path_set = set(path)
         print(path)
-        self.printAStar(path_set, wrld)'''
+        self.printAStar(path_set, wrld)
+
+
+
+
 
         if self.monstersInPlay(wrld) > 0 and self.needExpectiMax(path, wrld): # if there are more than 0 monsters
             if len(self.wallsInWay(wrld, set(path))) > 0: # if our a* path is blocked by a wall at any point
@@ -55,8 +65,7 @@ class TestCharacter(CharacterEntity):
             else: # otherwise move to the exit
                 alpha = -100000000
                 beta = 1
-                _, move = self.expectimax(wrld, (0, 0), 2, True, alpha, beta)
-                #print("Moves: ", move[0], move[1])
+                _, move = self.expectimax(wrld, (0, 0), 4, True, alpha, beta)
                 self.move(move[0], move[1])
         else:
             # Astar to exit (no monsters)
@@ -78,12 +87,11 @@ class TestCharacter(CharacterEntity):
     def needExpectiMax(self, exit_path, wrld):
         for idx, mon in wrld.monsters.items():
             mon_x = idx % wrld.width()
-            mon_y = (idx-mon_x)/wrld.width()
+            mon_y = int((idx-mon_x)/wrld.width())
             mon_path = self.aStar(mon_x, mon_y, wrld)
             if (len(mon_path) <= 5): # and (len(mon_path) < len(exit_path))
                 return True
         return False
-
 
 
     def monstersInPlay(self, wrld):
@@ -113,18 +121,19 @@ class TestCharacter(CharacterEntity):
         num_monsters = 1
         for e in wrld.events:
             if e.tpe == e.BOMB_HIT_CHARACTER:
-                exit_dist = 0
+                exit_dist = wrld.width()+wrld.height()
                 found = True
             if e.tpe == e.CHARACTER_KILLED_BY_MONSTER:
-                exit_dist = 0
+                exit_dist = wrld.width()+wrld.height()
                 found = True
             if e.tpe == e.CHARACTER_FOUND_EXIT:
-                exit_dist = 0
+                exit_dist = 8
                 found = True
         if not found:
             x = wrld.me(self).x
             y = wrld.me(self).y
             neighbors = self.neighbors((x, y), wrld)
+
             exit_path = self.aStar(wrld.exitcell[0], wrld.exitcell[1], wrld)
             for i in (self.wallsInWay(wrld, set(neighbors))):
                 not_free_spaces.append((i[0], i[1]))
@@ -140,18 +149,18 @@ class TestCharacter(CharacterEntity):
                 mon_path = self.aStar(mon_x, mon_y, wrld)
                 num_monsters += 1
                 dist = len(mon_path)
-                if (len(mon_path) >= 4):
-                    m_dist_penalty += dist
+                if (len(mon_path) >= 3):
+                    m_dist_penalty += 10
 
             if num_monsters == 0:
                 num_monsters = 1
             exit_dist = len(exit_path)
 
-        exit_bias = .1
+        exit_bias = 1
         m_dist_bias = 4
-        neighbor_bias = .9
+        neighbor_bias = 2
         score = exit_bias*((wrld.width()+wrld.height()) - exit_dist) + m_dist_bias*(m_dist_penalty/num_monsters) + neighbor_bias*(len(neighbors)-len(not_free_spaces)) #.4*(30 - exit) + .5*(m_dist_penalty/num_monsters) + .1*(1/(1+len(not_free_spaces)))
-        score = score/(exit_bias*(wrld.width()+wrld.height()) + m_dist_bias*(8) + neighbor_bias*(8))
+        score = score/(exit_bias*(wrld.width()+wrld.height()) + m_dist_bias*(12) + neighbor_bias*(8))
         # variant 2 .7*(30 - exit_dist) + 2.3*(m_dist_penalty/num_monsters) + .4*(len(neighbors)-len(not_free_spaces))
         # v2, v3, v4 .7*(30 - exit_dist) + 2.3*(m_dist_penalty/num_monsters) + .9*(len(neighbors)-len(not_free_spaces))
         #print(score)
@@ -179,27 +188,28 @@ class TestCharacter(CharacterEntity):
         char_moves = self.neighbors((x, y), wrld)
         #print(char_moves)
         for val in char_moves:
-            wrld.me(self).move(val[0]-x, val[1]-y)
-            if wrld.monsters:
-                monsters = next(iter(wrld.monsters.values()))
-                for m in monsters:
-                    mon_path = self.aStar(m.x, m.y, wrld)
-                    #if m.name == "stupid" or len(mon_path) > 2:
-                    #print("I'm with stupid")
-                    for dx in [-1, 0, 1]:
-                        # Avoid out-of-bound indexing
-                        if (m.x + dx >= 0) and (m.x + dx < wrld.width()):
-                            # Loop through delta y
-                            for dy in [-1, 0, 1]:
-                                if (dx != 0) or (dy != 0):
-                                # Avoid out-of-bound indexing
-                                    if (m.y + dy >= 0) and (m.y + dy < wrld.height()):
-                                        #if (not (dx == 0 and dy == 0)):
-                                        if not wrld.wall_at(m.x+dx, m.y+dy):
-                                            # Set move in wrld
-                                            m.move(dx, dy)
-                                            # Get new world
-                                            succ.append((wrld.next()[0], val[0]-x, val[1]-y))
+            if not wrld.wall_at(val[0], val[1]):
+                wrld.me(self).move(val[0]-x, val[1]-y)
+                if wrld.monsters:
+                    monsters = next(iter(wrld.monsters.values()))
+                    for m in monsters:
+                        #mon_path = self.aStar(m.x, m.y, wrld)
+                        #if m.name == "stupid" or len(mon_path) > 2:
+                        #print("I'm with stupid")
+                        for dx in [-1, 0, 1]:
+                            # Avoid out-of-bound indexing
+                            if (m.x + dx >= 0) and (m.x + dx < wrld.width()):
+                                # Loop through delta y
+                                for dy in [-1, 0, 1]:
+                                    if (dx != 0) or (dy != 0):
+                                    # Avoid out-of-bound indexing
+                                        if (m.y + dy >= 0) and (m.y + dy < wrld.height()):
+                                            #if (not (dx == 0 and dy == 0)):
+                                            if not wrld.wall_at(m.x+dx, m.y+dy):
+                                                # Set move in wrld
+                                                m.move(dx, dy)
+                                                # Get new world
+                                                succ.append((wrld.next()[0], val[0]-x, val[1]-y))
                         '''else:
                         #print("I'm with angry")
                         mon_path.reverse()
@@ -212,8 +222,8 @@ class TestCharacter(CharacterEntity):
                                 m.move(dx, dy)
                                 # Get new world
                                 succ.append((wrld.next()[0], val[0]-x, val[1]-y))'''
-            else:
-                succ.append((wrld.next()[0], val[0]-x, val[1]-y))
+                else:
+                    succ.append((wrld.next()[0], val[0]-x, val[1]-y))
         return succ
 
 
@@ -240,8 +250,8 @@ class TestCharacter(CharacterEntity):
             for child in succ:  # getting the children of the current node
                 evalu, column = self.expectimax(child[0], (child[1], child[2]), depth-1, not(maximizingPlayer), alpha, beta)
                 sum_vals += evalu
-                beta -= (1 - evalu)   # alpha-beta pruning
                 length += 1
+                beta -= (1 - evalu)   # alpha-beta pruning
                 if beta <= alpha:
                     break
             expectival = sum_vals/length

@@ -18,7 +18,7 @@ from testcharacter import TestCharacter
 #76457563
 random.seed(23452352) # TODO Change this if you want different random choices
 g = Game.fromfile('map.txt')
-g.add_monster(StupidMonster("stupid", # name
+'''g.add_monster(StupidMonster("stupid", # name
                             "S",      # avatar
                             6, 12,     # position
                             ))
@@ -27,7 +27,7 @@ g.add_monster(SelfPreservingMonster("aggressive", # name
                                     "A",          # avatar
                                     3, 6,        # position
                                     2             # detection range
-                                    ))
+                                    ))'''
 
 # TODO Add your character
 g.add_character(TestCharacter("me", # name
@@ -36,4 +36,4 @@ g.add_character(TestCharacter("me", # name
 ))
 
 # Run!
-g.go(1)
+g.go()
