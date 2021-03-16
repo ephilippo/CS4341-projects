@@ -18,7 +18,7 @@ from testcharacter import TestCharacter
 #874543
 #123
 #12
-random.seed(12) # TODO Change this if you want different random choices
+random.seed(4324743) # TODO Change this if you want different random choices
 g = Game.fromfile('map.txt')
 g.add_monster(StupidMonster("stupid", # name
                             "S",      # avatar
