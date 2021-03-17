@@ -18,6 +18,7 @@ from testcharacter import TestCharacter
 23452352
 123
 5345345
+744225798
 
 double 324234
 
@@ -25,7 +26,7 @@ loss 7567567
 123123
 
 '''
-random.seed(744225798) # TODO Change this if you want different random choices
+random.seed(7567567) # TODO Change this if you want different random choices
 g = Game.fromfile('map.txt')
 g.add_monster(StupidMonster("stupid", # name
                             "S",      # avatar
