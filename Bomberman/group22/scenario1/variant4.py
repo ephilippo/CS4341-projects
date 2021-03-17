@@ -17,7 +17,11 @@ from testcharacter import TestCharacter
 #123
 #98798983
 #123123123
-random.seed(97523564589) # TODO Change this if you want different random choices
+#432
+#7631
+# 7675656
+
+random.seed(534233) # TODO Change this if you want different random choices
 g = Game.fromfile('map.txt')
 g.add_monster(SelfPreservingMonster("aggressive", # name
                                     "A",          # avatar
