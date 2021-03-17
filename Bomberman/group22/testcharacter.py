@@ -107,30 +107,34 @@ class TestCharacter(CharacterEntity):
             else:
                 self.move(char_exit_path[1][0]-x, char_exit_path[1][1]-y)'''
         else:
-            monsters = next(iter(wrld.monsters.values()))
+            monsters = list(wrld.monsters.values())
             within_range = []
-            all_above = True
+            past_all = True
+            past_all_2 = True
             minimax = False
             expectimax = False
-            for mon in monsters:
-                mon_x = mon.x
-                mon_y = mon.y
-                mon_exit_path = self.aStar(mon_x, mon_y, wrld.exitcell[0], wrld.exitcell[1], wrld)
-                char_to_mon = self.aStar(x, y, mon_x, mon_y, wrld)
+            for mon_idx in monsters:
+                for mon in mon_idx:
+                    mon_x = mon.x
+                    mon_y = mon.y
+                    mon_exit_path = self.aStar(mon_x, mon_y, wrld.exitcell[0], wrld.exitcell[1], wrld)
+                    char_to_mon = self.aStar(x, y, mon_x, mon_y, wrld)
 
-                if not (y >= (mon_y + 2)):
-                    all_above = False
-                if not (len(char_exit_path) < len(mon_exit_path) and (y > mon_y)):
-                    all_above = False
-                if len(char_to_mon) <= 5:
-                    within_range.append(mon)
-                    if len(char_to_mon) <= 3:
-                        minimax = True
-                    else:
-                        expectimax = True
+                    if y < (mon_y + 2):
+                        past_all = False
+                    if (y < mon_y) or (len(char_exit_path) >= len(mon_exit_path)):
+                        past_all_2 = False
+                    if len(char_to_mon) <= 6:
+                        within_range.append(mon)
+                        if len(char_to_mon) <= 4:
+                            minimax = True
+                        else:
+                            expectimax = True
 
-            if all_above:
-                self.move(char_exit_path[1][0]-x, char_exit_path[1][1]-y)
+            dx = char_exit_path[1][0]-x
+            dy = char_exit_path[1][1]-y
+            if past_all or past_all_2:
+                self.move(dx, dy)
             elif minimax:
                 alpha = -10000
                 beta = 1000
@@ -142,7 +146,7 @@ class TestCharacter(CharacterEntity):
                 _, move = self.expectimax(wrld, (0, 0), 3, True, alpha, beta, False, within_range)
                 self.move(move[0], move[1])
             else:
-                self.move(char_exit_path[1][0]-x, char_exit_path[1][1]-y)
+                self.move(dx, dy)
 
 
 
@@ -194,6 +198,7 @@ class TestCharacter(CharacterEntity):
             score = col_value[x]
             #print("Initial: ", score)
             #mon = next(iter(wrld.monsters.values()))
+            safe = True
             for mon in monsters:
                 mon_x = mon.x
                 mon_y = mon.y
@@ -205,11 +210,15 @@ class TestCharacter(CharacterEntity):
                     safe_dist = 4
                 else:
                     safe_dist = 5
-                if len(mon_path) >= safe_dist:
-                    score += 120
-                    score -= len(char_exit_path)
-                else:
-                    score -= 300
+                if len(mon_path) < safe_dist:
+                    safe = False
+
+            if safe:
+                score += 120
+                score -= len(char_exit_path)
+            else:
+                score -= 300
+                score += len(mon_path)*3
 
 
             '''wrld.printit()
@@ -300,7 +309,7 @@ class TestCharacter(CharacterEntity):
                 if beta <= alpha:
                     print("pruned", beta, alpha, maxEval, maximizingPlayer)
                     break
-                print(depth, maxEval, evalu, child[1], child[2], maximizingPlayer, maxEval, best_action[0], best_action[1])
+                print(depth, evalu, child[1], child[2], maximizingPlayer, maxEval, best_action[0], best_action[1])
             '''wrld.printit()
             print(maxEval)
             print('maximizing node')
