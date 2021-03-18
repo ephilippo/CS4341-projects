@@ -48,28 +48,6 @@ class TestCharacter(CharacterEntity):
 
     """
 
-    def bombScript(self):
-        if self.wait < 3:
-            self.move(0, 1)
-            self.wait +=1
-        elif self.wait == 3:
-            self.place_bomb()
-            self.move(1, -1)
-            self.wait += 1
-        elif self.wait > 3:
-            self.move(0, 0)
-            self.wait += 1
-        if self.wait == 17:
-            self.wait = 0
-            self.times +=1
-        if self.times == 4:
-            self.wait = 18
-
-
-
-
-
-
 
     def do(self, wrld):
         x = wrld.me(self).x
@@ -100,9 +78,22 @@ class TestCharacter(CharacterEntity):
                     mon_exit_path = self.aStar(mon_x, mon_y, wrld.exitcell[0], wrld.exitcell[1], wrld)
                     char_to_mon = self.aStar(x, y, mon_x, mon_y, wrld)
 
+                    shortest = (100, [])
+                    counter = 0
+                    for val in char_exit_path:
+                        val_path_to_mon = self.aStar(val[0], val[1], mon_x, mon_y, wrld)
+                        counter += 1
+                        if min(len(val_path_to_mon), shortest[0]) < shortest[0] or (len(val_path_to_mon) == shortest[0]):
+                            shortest = (len(val_path_to_mon), val_path_to_mon, val, counter)
+
+                    '''if shortest != (100, []):
+                        path_set = set(shortest[1])
+                        print(shortest[1], shortest[2], shortest[3])
+                        self.printAStar(path_set, wrld)'''
+
                     if y < (mon_y + 2):
                         past_all = False
-                    if (y < mon_y) or (len(char_exit_path) >= len(mon_exit_path)):
+                    if len(char_exit_path) >= (len(mon_exit_path)-1) or ((y < mon_y) and (counter >= (len(shortest[1])-2))):
                         past_all_2 = False
                     if len(char_to_mon) <= 6:
                         within_range.append(mon)
@@ -118,12 +109,12 @@ class TestCharacter(CharacterEntity):
             elif minimax:
                 alpha = -10000
                 beta = 1000
-                _, move = self.expectimax(wrld, (0, 0), 6, True, alpha, beta, True, within_range)
+                _, move = self.expectimax(wrld, (0, 0), 4, True, alpha, beta, True, within_range)
                 self.move(move[0], move[1])
             elif expectimax:
                 alpha = -10000
                 beta = 1000
-                _, move = self.expectimax(wrld, (0, 0), 6, True, alpha, beta, False, within_range)
+                _, move = self.expectimax(wrld, (0, 0), 4, True, alpha, beta, False, within_range)
                 self.move(move[0], move[1])
             else:
                 self.move(dx, dy)
@@ -244,7 +235,7 @@ class TestCharacter(CharacterEntity):
             #monsters = next(iter(wrld.monsters.values()))
             for m in monsters:
                 mon_path = self.aStar(x, y, m.x, m.y, wrld)
-                '''if len(mon_path) > 4:
+                if len(mon_path) > 4:
                     #print("I'm with stupid")
                     for dx in [-1, 0, 1]:
                         # Avoid out-of-bound indexing
@@ -260,20 +251,20 @@ class TestCharacter(CharacterEntity):
                                             m.move(dx, dy)
                                             # Get new world
                                             succ.append((wrld.next()[0], dx, dy))
-                else:'''
-                #print("I'm with angry")
-                standin = SelfPreservingMonster("standin", "Z", m.x, m.y, 3)
-                (found, dx, dy) = standin.look_for_character(wrld)
-                if found and not standin.must_change_direction(wrld):
-                    m.move(dx, dy)
-                # If I'm idle or must change direction, change direction
-                elif ((m.dx == 0 and m.dy == 0) or standin.must_change_direction(wrld)):
-                    # Get list of safe moves
-                    safe = standin.look_for_empty_cell(wrld)
-                    if safe:
-                        move = random.choice(safe)
-                        m.move(move[0], move[1])
-                succ.append((wrld.next()[0], dx, dy))
+                else:
+                    #print("I'm with angry")
+                    standin = SelfPreservingMonster("standin", "Z", m.x, m.y, 3)
+                    (found, dx, dy) = standin.look_for_character(wrld)
+                    if found and not standin.must_change_direction(wrld):
+                        m.move(dx, dy)
+                    # If I'm idle or must change direction, change direction
+                    elif ((m.dx == 0 and m.dy == 0) or standin.must_change_direction(wrld)):
+                        # Get list of safe moves
+                        safe = standin.look_for_empty_cell(wrld)
+                        if safe:
+                            move = random.choice(safe)
+                            m.move(move[0], move[1])
+                    succ.append((wrld.next()[0], dx, dy))
 
         return succ
 
@@ -369,7 +360,7 @@ class TestCharacter(CharacterEntity):
         dx = next[0]-current[0]
         dy = next[1]-current[1]
         if wrld.wall_at(next[0], next[1]):
-            cost = 10
+            cost = 100
         elif dx*dy:
             cost = math.sqrt(2)
         else:

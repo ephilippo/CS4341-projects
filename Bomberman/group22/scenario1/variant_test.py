@@ -25,16 +25,16 @@ g = Game.fromfile('map_test.txt')
                             6, 12,     # position
                             ))'''
 
-g.add_monster(SelfPreservingMonster("aggressive", # name
+'''g.add_monster(SelfPreservingMonster("aggressive", # name
                                     "A",          # avatar
                                     3, 6,        # position
                                     2             # detection range
-                                    ))
+                                    ))'''
 
 # TODO Add your character
 g.add_character(TestCharacter("me", # name
                               "C",  # avatar
-                              0, 1  # position
+                              7, 0  # position
 ))
 
 # Run!
