@@ -10,7 +10,7 @@ from monsters.stupid_monster import StupidMonster
 from monsters.selfpreserving_monster import SelfPreservingMonster
 
 # TODO This is your code!
-sys.path.insert(1, '../groupNN')
+sys.path.insert(1, '../group22')
 from testcharacter import TestCharacter
 
 # Create the game
@@ -33,4 +33,4 @@ g.add_character(TestCharacter("me", # name
 ))
 
 # Run!
-g.go()
+g.go(1)

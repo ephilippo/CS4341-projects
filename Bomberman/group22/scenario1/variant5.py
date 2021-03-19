@@ -10,7 +10,7 @@ from monsters.stupid_monster import StupidMonster
 from monsters.selfpreserving_monster import SelfPreservingMonster
 
 # TODO This is your code!
-sys.path.insert(1, '../groupNN')
+sys.path.insert(1, '../group22')
 from testcharacter import TestCharacter
 
 # Create the game
@@ -27,7 +27,7 @@ loss 7567567  876787
 7567567
 135764 very very long4705
 '''
-random.seed(876787) # TODO Change this if you want different random choices
+random.seed(645645) # TODO Change this if you want different random choices
 g = Game.fromfile('map.txt')
 g.add_monster(StupidMonster("stupid", # name
                             "S",      # avatar
