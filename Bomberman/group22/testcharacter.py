@@ -2,7 +2,6 @@
 import random
 import sys
 
-
 from Bomberman.bomberman.monsters.selfpreserving_monster import SelfPreservingMonster
 
 sys.path.insert(0, '../bomberman')
@@ -14,7 +13,6 @@ from colorama import Fore, Back, Style
 from queue import PriorityQueue
 import math
 
-# Current score .7*(30 - exit_dist) + 2.3*(m_dist_penalty/num_monsters) + .9*(len(neighbors)-len(not_free_spaces))
 
 class TestCharacter(CharacterEntity):
 
@@ -23,236 +21,279 @@ class TestCharacter(CharacterEntity):
         self.wait = 0
         self.times = 0
 
+    def explosionsInPlay(self, wrld):
+        return len(wrld.explosions)
 
-    """
-    no walls       -moving
-    walls          -planting bomb
-    bomb/fire      -avoiding
-
-    if no monster, just follow A*
-    if monster(s), have to dodge as well as follow A*
-
-    staticEval
-    terminalTest
-    get_successors
-    
-    check immediate area around ourselves value moves that leave more exits
-    
-    what are things that are important to our character
-    
-    always 2-3 moves from monster
-    its okay to cede ground
-    mon dist to exit > our dist to exit + 1
-    staying away from the sides
-    
-
-    """
-
-
-    def do(self, wrld):
-        x = wrld.me(self).x
-        y = wrld.me(self).y
-        char_exit_path = self.aStar(x, y, wrld.exitcell[0], wrld.exitcell[1], wrld)
-        '''path_set = set(char_exit_path)
-        print(char_exit_path)
-        self.printAStar(path_set, wrld)'''
-        #self.bombScript()
-
-        if self.monstersInPlay(wrld) == 0:
-            if len(self.wallsInWay(wrld, set(char_exit_path))) == 0:
-                self.move(char_exit_path[1][0]-x, char_exit_path[1][1]-y)
-            else:
-                pass
-
-        else:
-            monsters = list(wrld.monsters.values())
-            within_range = []
-            past_all = True
-            past_all_2 = True
-            minimax = False
-            expectimax = False
-            for mon_idx in monsters:
-                for mon in mon_idx:
-                    mon_x = mon.x
-                    mon_y = mon.y
-                    mon_exit_path = self.aStar(mon_x, mon_y, wrld.exitcell[0], wrld.exitcell[1], wrld)
-                    char_to_mon = self.aStar(x, y, mon_x, mon_y, wrld)
-
-                    shortest = (100, [])
-                    counter = 0
-                    for val in char_exit_path:
-                        val_path_to_mon = self.aStar(val[0], val[1], mon_x, mon_y, wrld)
-                        counter += 1
-                        if min(len(val_path_to_mon), shortest[0]) < shortest[0] or (len(val_path_to_mon) == shortest[0]):
-                            shortest = (len(val_path_to_mon), val_path_to_mon, val, counter)
-
-                    '''if shortest != (100, []):
-                        path_set = set(shortest[1])
-                        print(shortest[1], shortest[2], shortest[3])
-                        self.printAStar(path_set, wrld)'''
-
-                    if y < (mon_y + 2):
-                        past_all = False
-                    if len(char_exit_path) >= (len(mon_exit_path)-1) or ((y < mon_y) and (counter >= (len(shortest[1])-2))):
-                        past_all_2 = False
-                    if len(char_to_mon) <= 6:
-                        within_range.append(mon)
-                        if len(char_to_mon) <= 4:
-                            minimax = True
-                        else:
-                            expectimax = True
-
-            dx = char_exit_path[1][0]-x
-            dy = char_exit_path[1][1]-y
-            if past_all or past_all_2:
-                self.move(dx, dy)
-            elif minimax:
-                alpha = -10000
-                beta = 1000
-                _, move = self.expectimax(wrld, (0, 0), 4, True, alpha, beta, True, within_range)
-                self.move(move[0], move[1])
-            elif expectimax:
-                alpha = -10000
-                beta = 1000
-                _, move = self.expectimax(wrld, (0, 0), 4, True, alpha, beta, False, within_range)
-                self.move(move[0], move[1])
-            else:
-                self.move(dx, dy)
-
-
-
-
-    def wallsInWay(self, wrld, path_set):
-        wallsInWay = set()
-        for i in range(wrld.width()):
-            for j in range(wrld.height()):
-                if wrld.grid[i][j] and ((i, j) in path_set):
-                    wallsInWay.add((i, j))
-        return wallsInWay
-
+    def bombsInPlay(self, wrld):
+        return len(wrld.bombs)
 
     def monstersInPlay(self, wrld):
         return len(wrld.monsters)
 
+    def charsInPlay(self, wrld):
+        return len(wrld.characters)
 
-    def explosionInPlay(self, wrld):
-        # TODO: check for bomb or fire(explosion) on the board
-        if len(wrld.explosions):
-            return True
-        else:
-            return False
+    def nonTrivialWorld(self, wrld):
+        return self.monstersInPlay(wrld) and self.charsInPlay(wrld)
 
-
-    def bombInPlay(self, wrld):
-        # TODO: check for bomb or fire(explosion) on the board
-        if len(wrld.bombs):
-            return True
-        else:
-            return False
-
-    def staticEval(self, wrld, monsters):
-        found = False
-        for e in wrld.events:
-            if e.tpe == e.BOMB_HIT_CHARACTER:
-                score = -10000
-                found = True
-            if e.tpe == e.CHARACTER_KILLED_BY_MONSTER:
-                score = -10000
-                found = True
-            if e.tpe == e.CHARACTER_FOUND_EXIT:
-                score = 1000
-                found = True
-        if not found:
-            x = wrld.me(self).x
-            y = wrld.me(self).y
-            col_value = [-100, -10, 1, 4, 4, 1, -10, -100]
-            score = col_value[x]
-            #print("Initial: ", score)
-            #mon = next(iter(wrld.monsters.values()))
-            safe = True
-            for mon in monsters:
-                mon_x = mon.x
-                mon_y = mon.y
-                mon_name = mon.name
-                mon_path = self.aStar(x, y, mon_x, mon_y, wrld)
-                char_exit_path = self.aStar(x, y, wrld.exitcell[0], wrld.exitcell[1], wrld)
-                #mon_exit_path = self.aStar(mon_x, mon_y, wrld.exitcell[0], wrld.exitcell[1], wrld)
-                if mon_name == "stupid":
-                    safe_dist = 4
-                else:
-                    safe_dist = 5
-                if len(mon_path) < safe_dist:
-                    safe = False
-
-            if safe:
-                score += 120
-                score -= len(char_exit_path)
-            else:
-                score -= 300
-                score += len(mon_path)*3
-
-
-            '''wrld.printit()
-            print("Character Stuff: x:", x, "y: ", y, "mon_x: ", mon_x, "mon_y: ", mon_y)
-            print("Final: ", score)
-            input("Press Enter to continue getting scores...")'''
-
-        '''if not maximizingPlayer:
-            score = -score'''
-        return score
-
-
-    def terminalTest(self, wrld):
-        # if we are in the same place as a monster then we are dead
+    def charDied(self, wrld):
         for e in wrld.events:
             if e.tpe == e.BOMB_HIT_CHARACTER:
                 return True
             if e.tpe == e.CHARACTER_KILLED_BY_MONSTER:
                 return True
+        return False
+
+    def monsterDied(self, wrld):
+        for e in wrld.events:
+            if e.tpe == e.BOMB_HIT_MONSTER:
+                return True
+        return False
+
+    def charFoundExit(self, wrld):
+        for e in wrld.events:
             if e.tpe == e.CHARACTER_FOUND_EXIT:
                 return True
         return False
 
-    def get_successors(self, wrld, maximizingPlayer, monsters):
+    def terminalTest(self, wrld):
+        # if we are in the same place as a monster then we are dead
+        if self.charDied(wrld) or self.charFoundExit(wrld):
+            return True
+        allMonsters = self.monsterDetector(wrld)
+        _, nearMonsters = self.monstersNearMe(wrld, allMonsters, 6)
+        if not nearMonsters:
+            return True
+        return False
+
+    def getCharXnY(self, wrld):
+        return wrld.me(self).x, wrld.me(self).y
+
+    def genExitPath(self, wrld, x, y):
+        exit_path = self.aStar(x, y, wrld.exitcell[0], wrld.exitcell[1], wrld)
+        return exit_path
+
+    def wallsInWay(self, wrld, path):
+        wallsInWay = set()
+        for i in range(wrld.width()):
+            for j in range(wrld.height()):
+                if wrld.grid[i][j] and ((i, j) in set(path)):
+                    wallsInWay.add((i, j))
+        return wallsInWay
+
+    def monsterDetector(self, wrld):
+        listOfMonsters = []
+        if self.nonTrivialWorld(wrld):
+            monsters = list(wrld.monsters.values())
+            for mon_idx in monsters:
+                for mon in mon_idx:
+                    listOfMonsters.append(mon)
+        return listOfMonsters
+
+    def monstersNearMe(self, wrld, monsters, range):
+        within_range = []
+        inDanger = False
+        if monsters:
+            x, y = self.getCharXnY(wrld)
+            for monster in monsters:
+                char_to_mon = self.aStar(x, y, monster.x, monster.y, wrld)
+                if not self.wallsInWay(wrld, set(char_to_mon)):
+                    if len(char_to_mon) <= range:
+                        within_range.append(monster)
+                        if monster.name == "stupid":
+                            danger = 4
+                        else:
+                            danger = 5
+                        if len(char_to_mon) <= danger:
+                            inDanger = True
+        return inDanger, within_range
+
+    def canEscape(self, wrld, allMonsters):
+        canEscape = True
+        if self.nonTrivialWorld(wrld):
+            x, y = self.getCharXnY(wrld)
+            char_exit_path = self.genExitPath(wrld, x, y)
+            for mon in allMonsters:
+                mon_x = mon.x
+                mon_y = mon.y
+                mon_exit_path = self.genExitPath(wrld, mon_x, mon_y)
+
+                shortest = (100, [])
+                moves_away = 0
+                for val in char_exit_path:
+                    val_path_to_mon = self.aStar(val[0], val[1], mon_x, mon_y, wrld)
+                    moves_away += 1
+                    if min(len(val_path_to_mon), shortest[0]) < shortest[0] or (len(val_path_to_mon) == shortest[0]):
+                        shortest = (len(val_path_to_mon), val_path_to_mon, val, moves_away)
+
+                not_strictly_past_mon = (y < (mon_y + 2))
+                cant_out_run = len(char_exit_path) >= (len(mon_exit_path) - 1)
+                cant_squeeze_by = ((y < mon_y) and (moves_away >= (len(shortest[1]) - 2)))
+
+                if not_strictly_past_mon or cant_out_run or cant_squeeze_by:
+                    canEscape = False
+        return canEscape
+
+    def do(self, wrld):
+        x, y = self.getCharXnY(wrld)
+        char_exit_path = self.genExitPath(wrld, x, y)
+        dx = char_exit_path[1][0] - x
+        dy = char_exit_path[1][1] - y
+        '''path_set = set(char_exit_path)
+        print(char_exit_path)
+        self.printAStar(path_set, wrld)'''
+        allMonsters = self.monsterDetector(wrld)
+        if allMonsters:
+            inDanger, nearMonsters = self.monstersNearMe(wrld, allMonsters, 6)
+            if self.canEscape(wrld, allMonsters):
+                self.move(dx, dy)
+            elif inDanger:
+                alpha = -10000
+                beta = 1000
+                _, move = self.expectimax(wrld, (0, 0), 4, True, alpha, beta, minimax=True)
+                self.move(move[0], move[1])
+            elif nearMonsters:
+                alpha = -10000
+                beta = 1000
+                _, move = self.expectimax(wrld, (0, 0), 4, True, alpha, beta, minimax=False)
+                self.move(move[0], move[1])
+            else:
+                self.move(dx, dy)
+        else:
+            if len(self.wallsInWay(wrld, set(char_exit_path))) == 0:
+                self.move(dx, dy)
+            else:
+                self.move(dx, dy)
+
+    def expectimax(self, wrld, col, depth, maximizingPlayer, alpha, beta, minimax):
+        if depth == 0 or self.terminalTest(wrld):
+            return self.staticEval(wrld), col
+        if maximizingPlayer:
+            maxEval = -10 ** 15
+            best_action = (0, 0)
+            for child in self.getSuccessors(wrld, maximizingPlayer):  # getting the children of the current node
+                evalu, column = self.expectimax(child[0], (child[1], child[2]), depth - 1, not (maximizingPlayer), alpha, beta, minimax)
+                if max(maxEval, evalu) > maxEval:
+                    maxEval = evalu
+                    best_action = (child[1], child[2])  # the best move will have the best value
+                alpha = max(alpha, evalu)  # alpha-beta pruning
+                if beta <= alpha:
+                    # print("pruned", beta, alpha, maxEval, maximizingPlayer)
+                    break
+                # print(depth, evalu, child[1], child[2], maximizingPlayer, maxEval, best_action[0], best_action[1])
+            '''wrld.printit()
+            print(maxEval)
+            print('maximizing node')
+            input("Press Enter to continue getting scores...")'''
+            return maxEval, best_action
+        else:
+            best_action = (0, 0)
+            succ = self.getSuccessors(wrld, maximizingPlayer)
+            length = 0
+            sum_vals = 0
+            minEval = 1000
+            for child in succ:  # getting the children of the current node
+                evalu, column = self.expectimax(child[0], (child[1], child[2]), depth - 1, not (maximizingPlayer), alpha, beta, minimax)
+                # print(depth, evalu, child[1], child[2], maximizingPlayer)
+                if minimax:
+                    if min(minEval, evalu) < minEval:
+                        minEval = evalu  # the best move will have the best value
+                    beta = min(beta, evalu)  # alpha-beta pruning
+                    if beta <= alpha:
+                        # print("pruned", beta, alpha, minEval, maximizingPlayer)
+                        break
+                else:
+                    sum_vals += evalu
+                    length += 1
+                    beta = 1000 * (len(succ) - length) + sum_vals  # alpha-beta pruning
+                    if beta <= alpha:
+                        # print("pruned", beta, alpha, len(succ), length, sum_vals, maximizingPlayer)
+                        break
+            if minimax:
+                return_val = minEval
+            else:
+                return_val = sum_vals / length
+            return return_val, best_action
+
+    def staticEval(self, wrld):
+        if self.charDied(wrld):
+            score = -10000
+        elif self.charFoundExit(wrld):
+            score = 1000
+        elif self.nonTrivialWorld(wrld):
+            x, y = self.getCharXnY(wrld)
+            char_exit_path = self.genExitPath(wrld, x, y)
+            col_value = [-100, -10, 1, 4, 4, 1, -10, -100]
+            score = col_value[x]
+            allMonsters = self.monsterDetector(wrld)
+            inDanger, nearMonsters = self.monstersNearMe(wrld, allMonsters, 6)
+            paths_to_monsters = []
+            for mon in nearMonsters:
+                mon_x = mon.x
+                mon_y = mon.y
+                char_to_mon = self.aStar(x, y, mon_x, mon_y, wrld)
+                paths_to_monsters.append(char_to_mon)
+
+            if len(paths_to_monsters) == 0:
+                shorter_path = []
+            elif len(paths_to_monsters) == 1:
+                shorter_path = paths_to_monsters[0]
+            elif len(paths_to_monsters[0]) <= len(paths_to_monsters[1]):
+                shorter_path = paths_to_monsters[0]
+            else:
+                shorter_path = paths_to_monsters[1]
+
+            if inDanger:
+                score -= 300
+                score += len(shorter_path) * 3
+            else:
+                score += 120
+                score -= len(char_exit_path)
+        elif self.monstersInPlay(wrld):
+            score = -10000
+        else:
+            score = 0
+        return score
+
+    def getSuccessors(self, wrld, maximizingPlayer):
         """
         return all the possible next world states from the current world state
         """
         succ = []
-        x = wrld.me(self).x
-        y = wrld.me(self).y
+        x, y = self.getCharXnY(wrld)
+        allMonsters = self.monsterDetector(wrld)
         if maximizingPlayer:
-            #monsters = next(iter(wrld.monsters.values()))
-            for m in monsters:
+            for m in allMonsters:
                 m.move(0, 0)
             char_moves = self.neighbors((x, y), wrld)
-            #print(char_moves)
+            # print(char_moves)
             for val in char_moves:
                 if not wrld.wall_at(val[0], val[1]):
-                    wrld.me(self).move(val[0]-x, val[1]-y)
-                    succ.append((wrld.next()[0], val[0]-x, val[1]-y))
+                    wrld.me(self).move(val[0] - x, val[1] - y)
+                    succ.append((wrld.next()[0], val[0] - x, val[1] - y))
         else:
             wrld.me(self).move(0, 0)
-            #monsters = next(iter(wrld.monsters.values()))
-            for m in monsters:
+            for m in allMonsters:
+                x, y = self.getCharXnY(wrld)
                 mon_path = self.aStar(x, y, m.x, m.y, wrld)
                 if len(mon_path) > 4:
-                    #print("I'm with stupid")
+                    # print("I'm with stupid")
                     for dx in [-1, 0, 1]:
                         # Avoid out-of-bound indexing
                         if (m.x + dx >= 0) and (m.x + dx < wrld.width()):
                             # Loop through delta y
                             for dy in [-1, 0, 1]:
                                 if (dx != 0) or (dy != 0):
-                                # Avoid out-of-bound indexing
+                                    # Avoid out-of-bound indexing
                                     if (m.y + dy >= 0) and (m.y + dy < wrld.height()):
-                                        #if (not (dx == 0 and dy == 0)):
-                                        if not wrld.wall_at(m.x+dx, m.y+dy):
+                                        # if (not (dx == 0 and dy == 0)):
+                                        if not wrld.wall_at(m.x + dx, m.y + dy):
                                             # Set move in wrld
                                             m.move(dx, dy)
                                             # Get new world
                                             succ.append((wrld.next()[0], dx, dy))
                 else:
-                    #print("I'm with angry")
+                    # print("I'm with angry")
                     standin = SelfPreservingMonster("standin", "Z", m.x, m.y, 3)
                     (found, dx, dy) = standin.look_for_character(wrld)
                     if found and not standin.must_change_direction(wrld):
@@ -265,103 +306,47 @@ class TestCharacter(CharacterEntity):
                             move = random.choice(safe)
                             m.move(move[0], move[1])
                     succ.append((wrld.next()[0], dx, dy))
-
         return succ
-
-    def expectimax(self, wrld, col, depth, maximizingPlayer, alpha, beta, mini, monsters):
-        if depth == 0 or self.terminalTest(wrld):
-            return self.staticEval(wrld, monsters), col
-        if maximizingPlayer:
-            maxEval = -10**15
-            best_action = (0, 0)
-            for child in self.get_successors(wrld, maximizingPlayer, monsters):  # getting the children of the current node
-                evalu, column = self.expectimax(child[0], (child[1], child[2]), depth-1, not(maximizingPlayer), alpha, beta, mini, monsters)
-                if max(maxEval, evalu) > maxEval:
-                    maxEval = evalu
-                    best_action = (child[1], child[2])  # the best move will have the best value
-                alpha = max(alpha, evalu)  # alpha-beta pruning
-                if beta <= alpha:
-                    #print("pruned", beta, alpha, maxEval, maximizingPlayer)
-                    break
-                #print(depth, evalu, child[1], child[2], maximizingPlayer, maxEval, best_action[0], best_action[1])
-            '''wrld.printit()
-            print(maxEval)
-            print('maximizing node')
-            input("Press Enter to continue getting scores...")'''
-            return maxEval, best_action
-        else:
-            best_action = (0, 0)
-            succ = self.get_successors(wrld, maximizingPlayer, monsters)
-            length = 0
-            sum_vals = 0
-            minEval = 1000
-            for child in succ:  # getting the children of the current node
-                evalu, column = self.expectimax(child[0], (child[1], child[2]), depth-1, not(maximizingPlayer), alpha, beta, mini, monsters)
-                #print(depth, evalu, child[1], child[2], maximizingPlayer)
-                if mini:
-                    if min(minEval, evalu) < minEval:
-                        minEval = evalu  # the best move will have the best value
-                    beta = min(beta, evalu)  # alpha-beta pruning
-                    if beta <= alpha:
-                        #print("pruned", beta, alpha, minEval, maximizingPlayer)
-                        break
-                else:
-                    sum_vals += evalu
-                    length += 1
-                    beta = 1000*(len(succ)-length) + sum_vals # alpha-beta pruning
-                    if beta <= alpha:
-                        #print("pruned", beta, alpha, len(succ), length, sum_vals, maximizingPlayer)
-                        break
-            if mini:
-                return_val = minEval
-            else:
-                return_val = sum_vals/length
-            return return_val, best_action
-
 
     def aStar(self, x, y, goal_x, goal_y, wrld):
         # A* Implementation
-        path = []
-        if not self.terminalTest(wrld):
-            '''x = wrld.me(self).x
-            y = wrld.me(self).y'''
-            frontier = PriorityQueue()
-            start = (x, y)
-            goal = (goal_x, goal_y)
-            frontier.put((0, start))
-            came_from = dict()
-            cost_so_far = dict()
-            came_from[start] = None
-            cost_so_far[start] = 0
-            while not frontier.empty():
-                current = frontier.get()[1]
-                if current == goal:
-                    break
-                for next in self.neighbors(current, wrld):
-                    new_cost = cost_so_far[current] + self.cost(current, next, wrld)
-                    if next not in cost_so_far or new_cost < cost_so_far[next]:
-                        cost_so_far[next] = new_cost
-                        priority = new_cost + self.heuristic(goal, next)
-                        frontier.put((priority, next))
-                        came_from[next] = current
-            path = [goal]
-            tracker = goal
-            while came_from[tracker]:
-                tracker = came_from[tracker]
-                path.append(tracker)
-                #print(tracker)
-            path.reverse()
+        frontier = PriorityQueue()
+        start = (x, y)
+        goal = (goal_x, goal_y)
+        frontier.put((0, start))
+        came_from = dict()
+        cost_so_far = dict()
+        came_from[start] = None
+        cost_so_far[start] = 0
+        while not frontier.empty():
+            current = frontier.get()[1]
+            if current == goal:
+                break
+            for next in self.neighbors(current, wrld):
+                new_cost = cost_so_far[current] + self.cost(current, next, wrld)
+                if next not in cost_so_far or new_cost < cost_so_far[next]:
+                    cost_so_far[next] = new_cost
+                    priority = new_cost + self.heuristic(goal, next)
+                    frontier.put((priority, next))
+                    came_from[next] = current
+        path = [goal]
+        tracker = goal
+        while came_from[tracker]:
+            tracker = came_from[tracker]
+            path.append(tracker)
+            # print(tracker)
+        path.reverse()
         return path
 
     def heuristic(self, goal, next):
         return max(abs(goal[0] - next[0]), abs(goal[1] - next[1]))
 
     def cost(self, current, next, wrld):
-        dx = next[0]-current[0]
-        dy = next[1]-current[1]
+        dx = next[0] - current[0]
+        dy = next[1] - current[1]
         if wrld.wall_at(next[0], next[1]):
             cost = 100
-        elif dx*dy:
+        elif dx * dy:
             cost = math.sqrt(2)
         else:
             cost = 1
@@ -386,28 +371,28 @@ class TestCharacter(CharacterEntity):
         for y in range(wrld.height()):
             sys.stdout.write("|")
             for x in range(wrld.width()):
-                if wrld.characters_at(x,y):
-                    for c in wrld.characters_at(x,y):
+                if wrld.characters_at(x, y):
+                    for c in wrld.characters_at(x, y):
                         sys.stdout.write(Back.GREEN + c.avatar)
-                elif wrld.monsters_at(x,y):
-                    for m in wrld.monsters_at(x,y):
+                elif wrld.monsters_at(x, y):
+                    for m in wrld.monsters_at(x, y):
                         sys.stdout.write(Back.BLUE + m.avatar)
-                elif wrld.exit_at(x,y):
+                elif wrld.exit_at(x, y):
                     sys.stdout.write(Back.YELLOW + "#")
-                elif wrld.bomb_at(x,y):
+                elif wrld.bomb_at(x, y):
                     sys.stdout.write(Back.MAGENTA + "@")
-                elif wrld.explosion_at(x,y):
+                elif wrld.explosion_at(x, y):
                     sys.stdout.write(Fore.RED + "*")
-                elif wrld.wall_at(x,y):
+                elif wrld.wall_at(x, y):
                     sys.stdout.write(Back.WHITE + " ")
                 elif (x, y) in path_set:
                     sys.stdout.write(Back.RED + " ")
                 else:
                     tile = False
-                    for k,clist in wrld.characters.items():
+                    for k, clist in wrld.characters.items():
                         for c in clist:
-                            if c.tiles.get((x,y)):
-                                sys.stdout.write(c.tiles[(x,y)] + ".")
+                            if c.tiles.get((x, y)):
+                                sys.stdout.write(c.tiles[(x, y)] + ".")
                                 tile = True
                                 break
                     if not tile:
@@ -416,6 +401,7 @@ class TestCharacter(CharacterEntity):
             sys.stdout.write("|\n")
         sys.stdout.write(border)
         sys.stdout.flush()
+
 
 '''x = wrld.me(self).x
             y = wrld.me(self).y
@@ -439,12 +425,6 @@ class TestCharacter(CharacterEntity):
                     score -= len(char_exit_path)
                 else:
                     score -= 300'''
-
-
-
-
-
-
 
 ''' x = wrld.me(self).x
             y = wrld.me(self).y

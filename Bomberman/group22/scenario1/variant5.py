@@ -25,9 +25,11 @@ double 324234
 loss 7567567  876787
 123123
 7567567
-135764 very very long4705
+135764 very very long
+4705
+8787
 '''
-random.seed(876787) # TODO Change this if you want different random choices
+random.seed(8787) # TODO Change this if you want different random choices
 g = Game.fromfile('map.txt')
 g.add_monster(StupidMonster("stupid", # name
                             "S",      # avatar
