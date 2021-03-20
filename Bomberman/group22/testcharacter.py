@@ -12,15 +12,15 @@ from monsters.selfpreserving_monster import SelfPreservingMonster
 from queue import PriorityQueue
 import math
 
-# Current score .7*(30 - exit_dist) + 2.3*(m_dist_penalty/num_monsters) + .9*(len(neighbors)-len(not_free_spaces))
-
 class TestCharacter(CharacterEntity):
 
     def __init__(self, name, avatar, x, y):
         CharacterEntity.__init__(self, name, avatar, x, y)
         self.times = 0
+        self.clock = 0
         self.explosion = []
         self.placedBomb = False
+        self.exclude = False
 
     def explosionPath(self,wrld,bombX,bombY):
         expPath = [(bombX,bombY)]
@@ -37,27 +37,22 @@ class TestCharacter(CharacterEntity):
         return expPath
 
     def validMove(self, wrld, x, y, explosion):
-        moves = []
-        if x-1 >= 0 and ((x-1,y) not in explosion) and not wrld.wall_at(x-1,y): moves.append((x-1, y))
-        if x+1 < wrld.width() and ((x+1,y) not in explosion) and not wrld.wall_at(x+1,y): moves.append((x+1, y))
-        if y-1 >= 0 and ((x,y-1) not in explosion) and not wrld.wall_at(x,y-1): moves.append((x, y-1))
-        if y+1 < wrld.height() and ((x,y+1) not in explosion) and not wrld.wall_at(x,y+1): moves.append((x, y+1))
+        if x-1 >= 0 and ((x-1,y) not in explosion) and not wrld.wall_at(x-1,y): return x-1, y
+        if x+1 < wrld.width() and ((x+1,y) not in explosion) and not wrld.wall_at(x+1,y): return x+1, y
+        if y-1 >= 0 and ((x,y-1) not in explosion) and not wrld.wall_at(x,y-1): return x, y-1
+        if y+1 < wrld.height() and ((x,y+1) not in explosion) and not wrld.wall_at(x,y+1): return x, y+1
 
-        if x-1 >= 0 and y -1 >= 0 and ((x-1,y-1) not in explosion) and not wrld.wall_at(x-1,y-1): moves.append((x-1, y-1))
-        if x-1 >= 0 and y +1 < wrld.height() and ((x-1,y+1) not in explosion) and not wrld.wall_at(x-1,y+1): moves.append((x-1, y+1))
-        if x+1 < wrld.width() and y -1 >= 0 and ((x+1,y-1) not in explosion) and not wrld.wall_at(x+1,y-1): moves.append((x+1, y-1))
-        if x+1 < wrld.width() and y +1 <= wrld.height() and ((x+1,y+1) not in explosion) and not wrld.wall_at(x+1,y+1): moves.append((x+1,y+1))
-        return moves
+        if x-1 >= 0 and y -1 >= 0 and ((x-1,y-1) not in explosion) and not wrld.wall_at(x-1,y-1): return x-1, y-1
+        if x-1 >= 0 and y +1 < wrld.height() and ((x-1,y+1) not in explosion) and not wrld.wall_at(x-1,y+1): return x-1, y+1
+        if x+1 < wrld.width() and y -1 >= 0 and ((x+1,y-1) not in explosion) and not wrld.wall_at(x+1,y-1): return x+1, y-1
+        if x+1 < wrld.width() and y +1 <= wrld.height() and ((x+1,y+1) not in explosion) and not wrld.wall_at(x+1,y+1): return x+1,y+1
+        if ((x, y) not in explosion) and not wrld.wall_at(x+1,y+1): return x,y
 
 
     def do(self, wrld):
         x = wrld.me(self).x
         y = wrld.me(self).y
         char_exit_path = self.aStar(x, y, wrld.exitcell[0], wrld.exitcell[1], wrld)
-        '''path_set = set(char_exit_path)
-        print(char_exit_path)
-        self.printAStar(path_set, wrld)'''
-        #self.bombScript()
 
         if self.monstersInPlay(wrld) == 0:
             if len(self.wallsInWay(wrld, set(char_exit_path))) == 0:
@@ -71,10 +66,18 @@ class TestCharacter(CharacterEntity):
                         self.move(1, -1)
                     else:
                         self.move(char_exit_path[1][0]-x, char_exit_path[1][1]-y)
-                elif self.bombInPlay(wrld):
-                    self.explosion = self.explosionPath(wrld, x, y)
-                    moves = self.validMove(wrld, x, y, self.explosion)
-                    self.move(moves[0][0]-x, moves[0][1]-y)
+                else:
+                    if self.bombInPlay(wrld):
+                        bombs = list(wrld.bombs.values())
+                        for bomb in bombs:
+                            if bomb.timer == 1:
+                                self.explosion = self.explosionPath(wrld, bomb.x, bomb.y)
+                    if self.explosion:
+                        safe_x, safe_y = self.validMove(wrld, x, y, self.explosion)
+                        self.move(safe_x-x, safe_y-y)
+                        if not self.bombInPlay(wrld) and not self.explosionInPlay(wrld):
+                            self.explosion = []
+
         else:
             monsters = list(wrld.monsters.values())
             within_range = []
@@ -123,13 +126,13 @@ class TestCharacter(CharacterEntity):
                         if min(len(val_path_to_mon), shortest[0]) < shortest[0] or (len(val_path_to_mon) == shortest[0]):
                             shortest = (len(val_path_to_mon), val_path_to_mon, val, counter)
 
-                    if mon_y < 7 and mon_y > 3 and (len(chamber1_barrier) == 8):
+                    if mon_y < 7 and mon_y > 3:
                         chamber1 = True
-                    if mon_y > 7 and mon_y < 11 and (len(chamber2_barrier) == 8):
+                    if mon_y > 7 and mon_y < 11:
                         chamber2 = True
-                    if mon_y > 11 and mon_y < 15 and (len(chamber3_barrier) == 8):
+                    if mon_y > 11 and mon_y < 15:
                         chamber3 = True
-                    if mon_y > 15 and (len(chamber4_barrier) == 8):
+                    if mon_y > 15:
                         chamber4 = True
 
                     if y < (mon_y + 2):
@@ -146,112 +149,99 @@ class TestCharacter(CharacterEntity):
             dx = char_exit_path[1][0]-x
             dy = char_exit_path[1][1]-y
             walls = self.wallsInWay(wrld, set(char_exit_path))
-            '''if walls and (chamber1 or chamber2 or chamber3 or chamber4) and not(self.bombInPlay(wrld)):
-                self.exclude = False
-                if not chamber1 and self.times < 8:
-                    position = (self.times, 2)
-                    dx = self.times - x
-                    dy = 2 - y
-                    if (x, y) != (self.times, 2):
-                        self.move(dx, dy)
-                        self.exclude = True
-                    elif (x, y) == (self.times, 2):
+            if walls and (chamber1 or chamber2 or chamber3 or chamber4) and not(self.bombInPlay(wrld)):
+                self.exclude = True
+                monsters = list(wrld.monsters.values())
+                flip = False
+                path = self.aStar(x, y, 7, 4*self.times, wrld)
+                for mon_idx in monsters:
+                    for mon in mon_idx:
+                        mon_x = mon.x
+                        mon_y = mon.y
+                        '''char_to_mon = self.aStar(x, y, mon_x, mon_y, wrld)
+                        if len(char_to_mon) <= 8:
+                            caught = True'''
+                        if mon.x == 7:
+                            flip = True
+                            self.times = 0
+                        if mon.x == 0:
+                            flip = False
+                if flip:
+                    path = self.aStar(x, y, 0, 4*self.times, wrld)
+                    if (x, y) != (0, 4*self.times): # and not caught
+                        self.move(path[1][0]-x, path[1][1]-y)
+                    elif (x, y) == (0, 4*self.times):
                         self.place_bomb()
                         self.move(0, -1)
                         self.times += 1
-                        self.exclude = False
-                if not chamber2 and self.times < 16 and self.times >= 8:
-                    position = (self.times-8, 6)
-                    dx = self.times - x - 8
-                    dy = 6 - y
-                    if (x, y) != (self.times-8, 6):
-                        self.move(dx, dy)
-                        self.exclude = True
-                    elif (x, y) == (self.times-8, 6):
+                    if self.times == 4:
+                        self.times = 0
+                else:
+
+                    if (x, y) != (7, 4*self.times): # and not caught
+                        self.move(path[1][0]-x, path[1][1]-y)
+                    elif (x, y) == (7, 4*self.times):
                         self.place_bomb()
                         self.move(0, -1)
                         self.times += 1
-                        self.exclude = False
+                    if self.times == 4:
+                        self.times = 0
+                    '''if caught:
+                        self.place_bomb()
+                        self.move(-1, 0)'''
 
-                if chamber1:
-                    newy = 2
-                elif chamber2:
-                    newy = 6
-                elif chamber3:
-                    newy = 10
-                elif chamber4:
-                    newy = 14
-                if self.times == 16:
-                    position = (7, newy)
-                    dx = 7 - x
-                    dy = newy - y
-                    if (x, y) != (7, newy):
-                        self.move(dx, dy)
-                        self.exclude = True
-                    elif (x, y) == (7, newy):
-                        self.place_bomb()
-                        self.move(0, -1)
-                        self.times += 1
-
-                if self.times == 17 and (past_all or past_all_2) and chamber3:
-                    position = (7, newy+4)
-                    dx = 7 - x
-                    dy = newy+4 - y
-                    if (x, y) != (7, newy+4):
-                        self.move(dx, dy)
-                        self.exclude = True
-                    elif (x, y) == (7, newy+4):
-                        self.place_bomb()
-                        self.move(0, -1)
-                        self.times += 1'''
-
-            if walls and not(self.bombInPlay(wrld)):
-                if y+1 < wrld.height() and (wrld.wall_at(char_exit_path[1][0], char_exit_path[1][1]) or wrld.wall_at(x, y+1)):
-                    if char_exit_path[1][1] == 3 and len(chamber1_barrier) > 4:
-                        self.place_bomb()
-                    elif char_exit_path[1][1] == 7 and len(chamber2_barrier) > 4:
-                        self.place_bomb()
-                    elif char_exit_path[1][1] == 11 and len(chamber3_barrier) > 4:
-                        self.place_bomb()
-                    elif char_exit_path[1][1] == 15 and len(chamber4_barrier) > 4:
-                        self.place_bomb()
-
+            if (not walls) and self.exclude:
+                monsters = list(wrld.monsters.values())
+                caught = False
+                for mon_idx in monsters:
+                    for mon in mon_idx:
+                        mon_x = mon.x
+                        mon_y = mon.y
+                        char_to_mon = self.aStar(x, y, mon_x, mon_y, wrld)
+                        if len(char_to_mon) <= 8:
+                            caught = True
+                '''if caught:
+                    self.place_bomb()
+                    self.move(-1, 0)
+                else:'''
+                self.move(dx, dy)
             if self.bombInPlay(wrld):
                 bombs = list(wrld.bombs.values())
                 for bomb in bombs:
                     if bomb.timer == 1:
                         self.explosion = self.explosionPath(wrld, bomb.x, bomb.y)
-            if self.explosion:
-                moves = self.validMove(wrld, x, y, self.explosion)
                 monsters = list(wrld.monsters.values())
+                caught = False
                 for mon_idx in monsters:
                     for mon in mon_idx:
                         mon_x = mon.x
                         mon_y = mon.y
-                if mon_y <= y + 4:
-                    for val in moves:
-                        if wrld.monsters_at(val[0], val[1]):
-                            moves.remove((val[0], val[1]))
-                    diffx = mon_x - x
-                    diffy = mon_y - y
-                    self.move(-diffx, -diffy)
+                        char_to_mon = self.aStar(x, y, mon_x, mon_y, wrld)
+                        if len(char_to_mon) <= 8:
+                            caught = True
+                '''if caught:
+                    self.place_bomb()
+                    self.move(-1, 0)
                 else:
-                    self.move(moves[0][0]-x, moves[0][1]-y)
+                    self.move(dx, dy)'''
+            if self.explosion:
+                safe_x, safe_y = self.validMove(wrld, x, y, self.explosion)
+                self.move(safe_x-x, safe_y-y)
                 if not self.bombInPlay(wrld) and not self.explosionInPlay(wrld):
                     self.explosion = []
-            elif (past_all or past_all_2):
+            elif (past_all or past_all_2) and not self.exclude:
                 self.move(dx, dy)
-            elif minimax:
+            elif minimax and not self.exclude:
                 alpha = -10000
                 beta = 1000
                 _, move = self.expectimax(wrld, (0, 0), 4, True, alpha, beta, True, within_range)
                 self.move(move[0], move[1])
-            elif expectimax:
+            elif expectimax and not self.exclude:
                 alpha = -10000
                 beta = 1000
                 _, move = self.expectimax(wrld, (0, 0), 4, True, alpha, beta, False, within_range)
                 self.move(move[0], move[1])
-            else:
+            elif not self.exclude:
                 self.move(dx, dy)
 
     def wallsInWay(self, wrld, path_set):
@@ -549,94 +539,3 @@ class TestCharacter(CharacterEntity):
             sys.stdout.write("|\n")
         sys.stdout.write(border)
         sys.stdout.flush()
-
-'''x = wrld.me(self).x
-            y = wrld.me(self).y
-            col_value = [-100, -10, 1, 4, 4, 1, -10, -100]
-            score = col_value[x]
-            #print("Initial: ", score)
-            #mon = next(iter(wrld.monsters.values()))
-            for mon in monsters:
-                mon_x = mon.x
-                mon_y = mon.y
-                mon_name = mon.name
-                mon_path = self.aStar(x, y, mon_x, mon_y, wrld)
-                char_exit_path = self.aStar(x, y, wrld.exitcell[0], wrld.exitcell[1], wrld)
-                #mon_exit_path = self.aStar(mon_x, mon_y, wrld.exitcell[0], wrld.exitcell[1], wrld)
-                if mon_name == "stupid":
-                    safe_dist = 4
-                else:
-                    safe_dist = 5
-                if len(mon_path) >= safe_dist:
-                    score += 120
-                    score -= len(char_exit_path)
-                else:
-                    score -= 300'''
-
-
-
-
-
-
-
-''' x = wrld.me(self).x
-            y = wrld.me(self).y
-            neighbors = self.neighbors((x, y), wrld)
-
-            exit_path = self.aStar(x, y, wrld.exitcell[0], wrld.exitcell[1], wrld)
-            for i in (self.wallsInWay(wrld, set(neighbors))):
-                not_free_spaces.append((i[0], i[1]))
-            for i in neighbors:
-                if wrld.monsters_at(i[0], i[1]):
-                    not_free_spaces.append((i[0], i[1]))
-            #print(free_spaces)
-            m_dist_penalty = 0
-            num_monsters = 0
-            for idx, mon in wrld.monsters.items():
-                mon_x = idx % wrld.width()
-                mon_y = int((idx-mon_x)/wrld.width())
-                mon_path = self.aStar(x, y, mon_x, mon_y, wrld)
-                num_monsters += 1
-                dist = len(mon_path)
-                if (len(mon_path) >= 3):
-                    m_dist_penalty += 10
-
-            if num_monsters == 0:
-                num_monsters = 1
-            exit_dist = len(exit_path)
-
-        exit_bias = 1
-        m_dist_bias = 4
-        neighbor_bias = 2
-        score = exit_bias*((wrld.width()+wrld.height()) - exit_dist) + m_dist_bias*(m_dist_penalty/num_monsters) + neighbor_bias*(len(neighbors)-len(not_free_spaces)) #.4*(30 - exit) + .5*(m_dist_penalty/num_monsters) + .1*(1/(1+len(not_free_spaces)))
-        score = score/(exit_bias*(wrld.width()+wrld.height()) + m_dist_bias*(12) + neighbor_bias*(8))
-        # variant 2 .7*(30 - exit_dist) + 2.3*(m_dist_penalty/num_monsters) + .4*(len(neighbors)-len(not_free_spaces))
-        # v2, v3, v4 .7*(30 - exit_dist) + 2.3*(m_dist_penalty/num_monsters) + .9*(len(neighbors)-len(not_free_spaces))
-        #print(score)
-        return score'''
-
-'''elif self.monstersInPlay(wrld) == 0:
-            mon = next(iter(wrld.monsters.values()))
-            mon_x = mon[0].x
-            mon_y = mon[0].y
-            mon_name = mon[0].name
-            mon_exit_path = self.aStar(mon_x, mon_y, wrld.exitcell[0], wrld.exitcell[1], wrld)
-            char_to_mon = self.aStar(x, y, mon_x, mon_y, wrld)
-            char_escape = self.aStar(x, y, 0, 0, wrld)
-            if y >= (mon_y + 2):
-                self.move(char_exit_path[1][0]-x, char_exit_path[1][1]-y)
-            elif len(char_exit_path) < len(mon_exit_path) and (y > mon_y):
-                self.move(char_exit_path[1][0]-x, char_exit_path[1][1]-y)
-            elif len(char_to_mon) <= 5:
-                if len(char_to_mon) <= 3:
-                    alpha = -10000
-                    beta = 1000
-                    _, move = self.expectimax(wrld, (0, 0), 2, True, alpha, beta, True, [mon])
-                    self.move(move[0], move[1])
-                else:
-                    alpha = -10000
-                    beta = 1000
-                    _, move = self.expectimax(wrld, (0, 0), 3, True, alpha, beta, False, [mon])
-                    self.move(move[0], move[1])
-            else:
-                self.move(char_exit_path[1][0]-x, char_exit_path[1][1]-y)'''

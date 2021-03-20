@@ -19,15 +19,15 @@ from interactivecharacter import InteractiveCharacter
 g = Game.fromfile('map.txt')
 
 # TODO Add your character
-'''g.add_character(TestCharacter("me", # name
+g.add_character(TestCharacter("me", # name
                               "C",  # avatar
                               0, 0  # position
-))'''
+))
 
-g.add_character(InteractiveCharacter("me", # name
+'''g.add_character(InteractiveCharacter("me", # name
                                  "C",  # avatar
                                    0, 0  # position
-))
+))'''
 
 # Run!
 g.go(1)

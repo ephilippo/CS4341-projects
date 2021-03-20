@@ -24,7 +24,7 @@ from interactivecharacter import InteractiveCharacter
 #3414234
 
 #losing
-#random.seed(874543) # TODO Change this if you want different random choices
+#random.seed(12312312) # TODO Change this if you want different random choices
 g = Game.fromfile('map.txt')
 g.add_monster(StupidMonster("stupid", # name
                             "S",      # avatar
